@@ -4,7 +4,7 @@ import { useNotification } from '../../context/NotificationContext.js';
 import { api } from '../../services/api.js';
 import { Modal } from '../common/Modal.js';
 import { Button } from '../common/Button.js';
-import { CheckSquare, Calendar, Ticket, Target, Building2, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
+import { CheckSquare, Calendar, Ticket, Target, Building2, ArrowDownLeft, ArrowUpRight, Users, Check } from 'lucide-react';
 
 interface QuickActionModalProps {
   isOpen: boolean;
@@ -38,6 +38,8 @@ export const QuickActionModal: React.FC<QuickActionModalProps> = ({
     deadline: '',
     isPersonal: false,
   });
+  const [taskAudienceMode, setTaskAudienceMode] = useState<'ASSIGNEE_ONLY' | 'ALL' | 'SELECTED'>('SELECTED');
+  const [taskCollaboratorIds, setTaskCollaboratorIds] = useState<string[]>([]);
 
   // Meeting Form State
   const [meetingData, setMeetingData] = useState({
@@ -59,6 +61,8 @@ export const QuickActionModal: React.FC<QuickActionModalProps> = ({
     relatedClientId: '',
     assignedUserId: '',
   });
+  const [ticketAudienceMode, setTicketAudienceMode] = useState<'ASSIGNEE_ONLY' | 'ALL' | 'SELECTED'>('SELECTED');
+  const [ticketCollaboratorIds, setTicketCollaboratorIds] = useState<string[]>([]);
 
   // Lead Form State
   const [leadData, setLeadData] = useState({
@@ -129,7 +133,11 @@ export const QuickActionModal: React.FC<QuickActionModalProps> = ({
     try {
       if (activeType === 'task') {
         if (!taskData.title.trim()) throw new Error('Task title is required');
-        await api.tasks.create(taskData);
+        await api.tasks.create({
+          ...taskData,
+          audienceMode: taskAudienceMode,
+          collaboratorIds: taskAudienceMode === 'SELECTED' ? taskCollaboratorIds : [],
+        });
         showToast('Task created successfully', 'success');
       } else if (activeType === 'meeting') {
         if (!meetingData.title.trim()) throw new Error('Meeting title is required');
@@ -137,7 +145,11 @@ export const QuickActionModal: React.FC<QuickActionModalProps> = ({
         showToast('Meeting scheduled successfully', 'success');
       } else if (activeType === 'ticket') {
         if (!ticketData.title.trim() || !ticketData.description.trim()) throw new Error('Title and description are required');
-        await api.tickets.create(ticketData);
+        await api.tickets.create({
+          ...ticketData,
+          audienceMode: ticketAudienceMode,
+          collaboratorIds: ticketAudienceMode === 'SELECTED' ? ticketCollaboratorIds : [],
+        });
         showToast('Ticket logged successfully', 'success');
       } else if (activeType === 'lead') {
         if (!leadData.businessName.trim()) throw new Error('Business name is required');
@@ -294,6 +306,122 @@ export const QuickActionModal: React.FC<QuickActionModalProps> = ({
                   className="w-full px-3 py-2 bg-zinc-850 border border-zinc-750 rounded-lg text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
                 />
               </div>
+
+              {/* Relevant People / Collaborators */}
+              <div className="space-y-2 pt-2 border-t border-zinc-800">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-indigo-400" />
+                    Who is this task relevant for?
+                  </label>
+                  <span className="text-[10px] text-zinc-500 font-mono">
+                    {taskAudienceMode === 'ALL'
+                      ? 'All team members'
+                      : taskAudienceMode === 'SELECTED'
+                      ? `${taskCollaboratorIds.length} selected`
+                      : 'Assignee only'}
+                  </span>
+                </div>
+
+                {/* Audience Selection Pills */}
+                <div className="grid grid-cols-3 gap-1.5 p-1 bg-zinc-900 rounded-lg border border-zinc-800 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => setTaskAudienceMode('SELECTED')}
+                    className={`py-1.5 px-2 rounded-md font-medium transition-all text-center cursor-pointer ${
+                      taskAudienceMode === 'SELECTED'
+                        ? 'bg-zinc-800 text-zinc-100 shadow-sm border border-zinc-700'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    Selected People
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTaskAudienceMode('ALL');
+                      setTaskCollaboratorIds(usersList.map(u => u.id));
+                    }}
+                    className={`py-1.5 px-2 rounded-md font-medium transition-all text-center cursor-pointer ${
+                      taskAudienceMode === 'ALL'
+                        ? 'bg-indigo-950/80 text-indigo-200 shadow-sm border border-indigo-700/60'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    Everyone (All)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTaskAudienceMode('ASSIGNEE_ONLY');
+                      setTaskCollaboratorIds([]);
+                    }}
+                    className={`py-1.5 px-2 rounded-md font-medium transition-all text-center cursor-pointer ${
+                      taskAudienceMode === 'ASSIGNEE_ONLY'
+                        ? 'bg-zinc-800 text-zinc-100 shadow-sm border border-zinc-700'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    Assignee Only
+                  </button>
+                </div>
+
+                {/* Selected People Checkboxes Matrix */}
+                {taskAudienceMode === 'SELECTED' && (
+                  <div className="space-y-2 p-2.5 bg-zinc-900/60 rounded-lg border border-zinc-800/80">
+                    <div className="flex items-center justify-between text-[10px] text-zinc-400 px-0.5">
+                      <span>Select colleagues who should see & collaborate on this task:</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setTaskCollaboratorIds(usersList.map(u => u.id))}
+                          className="text-indigo-400 hover:underline cursor-pointer"
+                        >
+                          Select All
+                        </button>
+                        <span>•</span>
+                        <button
+                          type="button"
+                          onClick={() => setTaskCollaboratorIds([])}
+                          className="text-zinc-400 hover:underline cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1.5 max-h-32 overflow-y-auto pr-1">
+                      {usersList.map((u) => {
+                        const isSelected = taskCollaboratorIds.includes(u.id);
+                        return (
+                          <button
+                            key={u.id}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                setTaskCollaboratorIds(prev => prev.filter(id => id !== u.id));
+                              } else {
+                                setTaskCollaboratorIds(prev => [...prev, u.id]);
+                              }
+                            }}
+                            className={`p-1.5 rounded flex items-center justify-between text-left text-xs transition-all border cursor-pointer ${
+                              isSelected
+                                ? 'bg-indigo-950/40 border-indigo-700/60 text-zinc-100 font-medium'
+                                : 'bg-zinc-850/40 border-zinc-750/40 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
+                            }`}
+                          >
+                            <div className="truncate pr-1">
+                              <span>{u.name}</span>
+                              <span className="text-[10px] text-zinc-500 ml-1">({u.role})</span>
+                            </div>
+                            {isSelected && <Check className="w-3 h-3 text-indigo-400 shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             </>
           )}
 
@@ -429,6 +557,35 @@ export const QuickActionModal: React.FC<QuickActionModalProps> = ({
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1">Related Client (Optional)</label>
+                  <select
+                    value={ticketData.relatedClientId}
+                    onChange={(e) => setTicketData({ ...ticketData, relatedClientId: e.target.value })}
+                    className="w-full px-3 py-2 bg-zinc-850 border border-zinc-750 rounded-lg text-xs text-zinc-100"
+                  >
+                    <option value="">Internal / No Client</option>
+                    {clientsList.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1">Assignee</label>
+                  <select
+                    value={ticketData.assignedUserId}
+                    onChange={(e) => setTicketData({ ...ticketData, assignedUserId: e.target.value })}
+                    className="w-full px-3 py-2 bg-zinc-850 border border-zinc-750 rounded-lg text-xs text-zinc-100"
+                  >
+                    <option value="">Unassigned</option>
+                    {usersList.map((u) => (
+                      <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-medium text-zinc-300 mb-1">Issue Description *</label>
                 <textarea
@@ -439,6 +596,114 @@ export const QuickActionModal: React.FC<QuickActionModalProps> = ({
                   onChange={(e) => setTicketData({ ...ticketData, description: e.target.value })}
                   className="w-full px-3 py-2 bg-zinc-850 border border-zinc-750 rounded-lg text-xs text-zinc-100"
                 />
+              </div>
+
+              {/* Who is this ticket relevant for? (Collaborators / Visibility) */}
+              <div className="space-y-2 pt-1 border-t border-zinc-850">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-medium text-zinc-300">
+                    Who is this ticket relevant for?
+                  </label>
+                  <span className="text-[10px] text-zinc-500">Shared collaborators & notifications</span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-1.5 p-1 bg-zinc-900 rounded-lg border border-zinc-800 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setTicketAudienceMode('SELECTED')}
+                    className={`py-1.5 px-2 rounded-md font-medium transition-all text-center cursor-pointer ${
+                      ticketAudienceMode === 'SELECTED'
+                        ? 'bg-zinc-800 text-zinc-100 shadow-sm border border-zinc-700'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    Selected People
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTicketAudienceMode('ALL');
+                      setTicketCollaboratorIds(usersList.map(u => u.id));
+                    }}
+                    className={`py-1.5 px-2 rounded-md font-medium transition-all text-center cursor-pointer ${
+                      ticketAudienceMode === 'ALL'
+                        ? 'bg-indigo-950/80 text-indigo-200 shadow-sm border border-indigo-700/60'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    Everyone (All)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTicketAudienceMode('ASSIGNEE_ONLY');
+                      setTicketCollaboratorIds([]);
+                    }}
+                    className={`py-1.5 px-2 rounded-md font-medium transition-all text-center cursor-pointer ${
+                      ticketAudienceMode === 'ASSIGNEE_ONLY'
+                        ? 'bg-zinc-800 text-zinc-100 shadow-sm border border-zinc-700'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    Assignee Only
+                  </button>
+                </div>
+
+                {/* Selected People Checkboxes Matrix */}
+                {ticketAudienceMode === 'SELECTED' && (
+                  <div className="space-y-2 p-2.5 bg-zinc-900/60 rounded-lg border border-zinc-800/80">
+                    <div className="flex items-center justify-between text-[10px] text-zinc-400 px-0.5">
+                      <span>Select colleagues who should see & collaborate on this ticket:</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setTicketCollaboratorIds(usersList.map(u => u.id))}
+                          className="text-indigo-400 hover:underline cursor-pointer"
+                        >
+                          Select All
+                        </button>
+                        <span>•</span>
+                        <button
+                          type="button"
+                          onClick={() => setTicketCollaboratorIds([])}
+                          className="text-zinc-400 hover:underline cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1.5 max-h-32 overflow-y-auto pr-1">
+                      {usersList.map((u) => {
+                        const isSelected = ticketCollaboratorIds.includes(u.id);
+                        return (
+                          <button
+                            key={u.id}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                setTicketCollaboratorIds(prev => prev.filter(id => id !== u.id));
+                              } else {
+                                setTicketCollaboratorIds(prev => [...prev, u.id]);
+                              }
+                            }}
+                            className={`p-1.5 rounded flex items-center justify-between text-left text-xs transition-all border cursor-pointer ${
+                              isSelected
+                                ? 'bg-indigo-950/40 border-indigo-700/60 text-zinc-100 font-medium'
+                                : 'bg-zinc-850/40 border-zinc-750/40 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
+                            }`}
+                          >
+                            <div className="truncate pr-1">
+                              <span>{u.name}</span>
+                              <span className="text-[10px] text-zinc-500 ml-1">({u.role})</span>
+                            </div>
+                            {isSelected && <Check className="w-3 h-3 text-indigo-400 shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}

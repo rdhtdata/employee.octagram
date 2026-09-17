@@ -35,6 +35,7 @@ model User {
   createdExpenses     Expense[]            @relation("ExpenseCreator")
   assignedTickets     Ticket[]             @relation("TicketAssignee")
   createdTickets      Ticket[]             @relation("TicketCreator")
+  ticketCollaborations TicketCollaborator[]
   ticketComments      TicketComment[]
   communications      Communication[]
   clientNotes         ClientNote[]
@@ -279,12 +280,23 @@ model Ticket {
   updatedAt       DateTime  @updatedAt
 
   // Relations
-  client    Client?         @relation(fields: [relatedClientId], references: [id], onDelete: SetNull)
-  creator   User            @relation("TicketCreator", fields: [createdById], references: [id])
-  assignee  User?           @relation("TicketAssignee", fields: [assignedUserId], references: [id])
-  comments  TicketComment[]
-  tasks     Task[]
-  documents Document[]
+  client        Client?              @relation(fields: [relatedClientId], references: [id], onDelete: SetNull)
+  creator       User                 @relation("TicketCreator", fields: [createdById], references: [id])
+  assignee      User?                @relation("TicketAssignee", fields: [assignedUserId], references: [id])
+  collaborators TicketCollaborator[]
+  comments      TicketComment[]
+  tasks         Task[]
+  documents     Document[]
+}
+
+model TicketCollaborator {
+  ticketId String
+  userId   String
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([ticketId, userId])
 }
 
 model TicketComment {

@@ -158,6 +158,7 @@ router.post('/', requireAuth, async (req: AuthenticatedRequest, res: Response): 
       recurrence,
       isPersonal,
       collaboratorIds,
+      audienceMode, // 'ASSIGNEE_ONLY' | 'ALL' | 'SELECTED'
     } = req.body;
 
     if (!title || !title.trim()) {
@@ -166,7 +167,20 @@ router.post('/', requireAuth, async (req: AuthenticatedRequest, res: Response): 
     }
 
     const currentUserId = req.user!.userId;
+    const isSales = req.user!.role === 'SALES';
     const assignee = isPersonal ? currentUserId : (assignedUserId || currentUserId);
+    const targetClientId = isSales ? null : (relatedClientId || null);
+
+    let finalCollaboratorIds: string[] = [];
+    if (audienceMode === 'ALL') {
+      const allUsers = await prisma.user.findMany({
+        where: { isActive: true, id: { not: currentUserId } },
+        select: { id: true }
+      });
+      finalCollaboratorIds = allUsers.map(u => u.id).filter(id => id !== assignee);
+    } else if (Array.isArray(collaboratorIds)) {
+      finalCollaboratorIds = collaboratorIds.filter((id: string) => id !== assignee && id !== currentUserId);
+    }
 
     const task = await prisma.task.create({
       data: {
@@ -174,7 +188,7 @@ router.post('/', requireAuth, async (req: AuthenticatedRequest, res: Response): 
         description: description ? description.trim() : null,
         createdById: currentUserId,
         assignedUserId: assignee,
-        relatedClientId: relatedClientId || null,
+        relatedClientId: targetClientId,
         relatedLeadId: relatedLeadId || null,
         relatedMeetingId: relatedMeetingId || null,
         relatedTicketId: relatedTicketId || null,
@@ -183,9 +197,9 @@ router.post('/', requireAuth, async (req: AuthenticatedRequest, res: Response): 
         deadline: deadline ? new Date(deadline) : null,
         recurrence: recurrence || 'NONE',
         isPersonal: Boolean(isPersonal),
-        collaborators: Array.isArray(collaboratorIds) && collaboratorIds.length > 0
+        collaborators: finalCollaboratorIds.length > 0
           ? {
-              create: collaboratorIds.map((uid: string) => ({ userId: uid }))
+              create: finalCollaboratorIds.map((uid: string) => ({ userId: uid }))
             }
           : undefined
       },
@@ -193,6 +207,9 @@ router.post('/', requireAuth, async (req: AuthenticatedRequest, res: Response): 
         assignee: { select: { id: true, name: true } },
         client: { select: { id: true, name: true } },
         lead: { select: { id: true, businessName: true } },
+        collaborators: {
+          include: { user: { select: { id: true, name: true, email: true, avatarUrl: true } } }
+        }
       }
     });
 
@@ -207,6 +224,21 @@ router.post('/', requireAuth, async (req: AuthenticatedRequest, res: Response): 
           linkUrl: `/tasks?taskId=${task.id}`,
         }
       });
+    }
+
+    // Notify collaborators
+    for (const collabId of finalCollaboratorIds) {
+      if (collabId !== currentUserId && collabId !== assignee) {
+        await prisma.notification.create({
+          data: {
+            userId: collabId,
+            type: 'TASK_ASSIGNED',
+            title: 'Shared Team Task',
+            message: `${req.user!.name} included you on the team task "${task.title}".`,
+            linkUrl: `/tasks?taskId=${task.id}`,
+          }
+        });
+      }
     }
 
     // Log Activity

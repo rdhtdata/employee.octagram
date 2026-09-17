@@ -18,6 +18,7 @@ import {
   User as UserIcon,
   AlertCircle,
   CheckCircle2,
+  Users,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -216,6 +217,12 @@ export const TicketsPage: React.FC<{ initialTicketId?: string }> = ({ initialTic
                     <span className="font-mono text-[10px] uppercase text-zinc-500">[{t.category}]</span>
                     {t.client && <span>🏢 {t.client.name}</span>}
                     {t.assignee && <span>👤 {t.assignee.name}</span>}
+                    {t.collaborators && t.collaborators.length > 0 && (
+                      <span className="flex items-center gap-1 text-indigo-400 font-medium">
+                        <Users className="w-3 h-3 text-indigo-400" />
+                        {t.collaborators.length} shared
+                      </span>
+                    )}
                     {t._count?.comments ? (
                       <span className="flex items-center gap-1">
                         <MessageSquare className="w-3 h-3 text-zinc-500" />
@@ -297,6 +304,32 @@ export const TicketsPage: React.FC<{ initialTicketId?: string }> = ({ initialTic
               <div className="p-3 bg-zinc-950/60 rounded-lg border border-zinc-850 text-zinc-300 leading-relaxed whitespace-pre-wrap">
                 {selectedTicket.description}
               </div>
+            </div>
+
+            {/* Collaborators / Shared With */}
+            <div className="space-y-2 pt-3 border-t border-zinc-800">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-indigo-400" /> Relevant People & Collaborators ({selectedTicket.collaborators?.length || 0})
+                </label>
+              </div>
+
+              {selectedTicket.collaborators && selectedTicket.collaborators.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedTicket.collaborators.map((c, i) => (
+                    <div
+                      key={c.user?.id || i}
+                      className="flex items-center gap-1.5 px-2.5 py-1 bg-zinc-900 border border-zinc-800 rounded-md text-[11px] text-zinc-300"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                      <span className="font-medium text-zinc-200">{c.user?.name || 'User'}</span>
+                      <span className="text-[10px] text-zinc-500">({c.user?.role})</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-zinc-500 text-[11px] italic">Only assigned user and creator have direct relevance.</p>
+              )}
             </div>
 
             {/* Comments Stream */}

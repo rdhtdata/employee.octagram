@@ -37,6 +37,9 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response): P
         assignee: { select: { id: true, name: true, avatarUrl: true } },
         creator: { select: { id: true, name: true } },
         client: { select: { id: true, name: true } },
+        collaborators: {
+          include: { user: { select: { id: true, name: true, email: true, avatarUrl: true } } }
+        },
         _count: { select: { comments: true } }
       },
       orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }]
@@ -58,6 +61,9 @@ router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response)
         assignee: { select: { id: true, name: true, email: true, avatarUrl: true } },
         creator: { select: { id: true, name: true, email: true } },
         client: { select: { id: true, name: true, phone: true, email: true } },
+        collaborators: {
+          include: { user: { select: { id: true, name: true, email: true, avatarUrl: true } } }
+        },
         comments: {
           include: { author: { select: { id: true, name: true, avatarUrl: true } } },
           orderBy: { createdAt: 'asc' }
@@ -82,7 +88,18 @@ router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response)
 // POST /api/tickets - Create ticket
 router.post('/', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { title, description, category, priority, status, relatedClientId, assignedUserId, deadline } = req.body;
+    const {
+      title,
+      description,
+      category,
+      priority,
+      status,
+      relatedClientId,
+      assignedUserId,
+      deadline,
+      collaboratorIds,
+      audienceMode, // 'ASSIGNEE_ONLY' | 'ALL' | 'SELECTED'
+    } = req.body;
 
     if (!title || !description) {
       res.status(400).json({ error: 'Title and description are required.' });
@@ -96,6 +113,20 @@ router.post('/', requireAuth, async (req: AuthenticatedRequest, res: Response): 
     const nextNumber = lastTicket ? lastTicket.ticketNumber + 1 : 1001;
 
     const currentUserId = req.user!.userId;
+    const isSales = req.user!.role === 'SALES';
+    const targetClientId = isSales ? null : (relatedClientId || null);
+
+    let finalCollaboratorIds: string[] = [];
+    if (audienceMode === 'ALL') {
+      const allUsers = await prisma.user.findMany({
+        where: { isActive: true, id: { not: currentUserId } },
+        select: { id: true }
+      });
+      finalCollaboratorIds = allUsers.map(u => u.id).filter(id => id !== assignedUserId);
+    } else if (Array.isArray(collaboratorIds)) {
+      finalCollaboratorIds = collaboratorIds.filter((id: string) => id !== assignedUserId && id !== currentUserId);
+    }
+
     const ticket = await prisma.ticket.create({
       data: {
         ticketNumber: nextNumber,
@@ -104,14 +135,22 @@ router.post('/', requireAuth, async (req: AuthenticatedRequest, res: Response): 
         category: category || 'CLIENT',
         priority: priority || 'MEDIUM',
         status: status || 'OPEN',
-        relatedClientId: relatedClientId || null,
+        relatedClientId: targetClientId,
         assignedUserId: assignedUserId || null,
         createdById: currentUserId,
         deadline: deadline ? new Date(deadline) : null,
+        collaborators: finalCollaboratorIds.length > 0
+          ? {
+              create: finalCollaboratorIds.map((uid: string) => ({ userId: uid }))
+            }
+          : undefined
       },
       include: {
         assignee: { select: { id: true, name: true } },
-        client: { select: { id: true, name: true } }
+        client: { select: { id: true, name: true } },
+        collaborators: {
+          include: { user: { select: { id: true, name: true, email: true, avatarUrl: true } } }
+        }
       }
     });
 
@@ -125,6 +164,21 @@ router.post('/', requireAuth, async (req: AuthenticatedRequest, res: Response): 
           linkUrl: `/tickets?ticketId=${ticket.id}`,
         }
       });
+    }
+
+    // Notify collaborators
+    for (const collabId of finalCollaboratorIds) {
+      if (collabId !== currentUserId && collabId !== assignedUserId) {
+        await prisma.notification.create({
+          data: {
+            userId: collabId,
+            type: 'TICKET_UPDATE',
+            title: `Shared Ticket #${ticket.ticketNumber}`,
+            message: `${req.user!.name} included you on ticket #${ticket.ticketNumber}: "${ticket.title}".`,
+            linkUrl: `/tickets?ticketId=${ticket.id}`,
+          }
+        });
+      }
     }
 
     await logActivity({
@@ -142,11 +196,11 @@ router.post('/', requireAuth, async (req: AuthenticatedRequest, res: Response): 
   }
 });
 
-// PATCH /api/tickets/:id - Update status / assignee / priority
+// PATCH /api/tickets/:id - Update status / assignee / priority / collaborators
 router.patch('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const id = req.params.id as string;
-    const { title, description, category, priority, status, assignedUserId, deadline } = req.body;
+    const { title, description, category, priority, status, assignedUserId, deadline, collaboratorIds } = req.body;
 
     const existing = await prisma.ticket.findUnique({ where: { id } });
     if (!existing) {
@@ -154,20 +208,33 @@ router.patch('/:id', requireAuth, async (req: AuthenticatedRequest, res: Respons
       return;
     }
 
+    const updateData: any = {};
+    if (title !== undefined) updateData.title = title.trim();
+    if (description !== undefined) updateData.description = description.trim();
+    if (category !== undefined) updateData.category = category;
+    if (priority !== undefined) updateData.priority = priority;
+    if (status !== undefined) updateData.status = status;
+    if (assignedUserId !== undefined) updateData.assignedUserId = assignedUserId || null;
+    if (deadline !== undefined) updateData.deadline = deadline ? new Date(deadline) : null;
+
+    if (Array.isArray(collaboratorIds)) {
+      await prisma.ticketCollaborator.deleteMany({ where: { ticketId: id } });
+      if (collaboratorIds.length > 0) {
+        updateData.collaborators = {
+          create: collaboratorIds.map((uid: string) => ({ userId: uid }))
+        };
+      }
+    }
+
     const updated = await prisma.ticket.update({
       where: { id },
-      data: {
-        title: title !== undefined ? title.trim() : undefined,
-        description: description !== undefined ? description.trim() : undefined,
-        category: category !== undefined ? category : undefined,
-        priority: priority !== undefined ? priority : undefined,
-        status: status !== undefined ? status : undefined,
-        assignedUserId: assignedUserId !== undefined ? (assignedUserId || null) : undefined,
-        deadline: deadline !== undefined ? (deadline ? new Date(deadline) : null) : undefined,
-      },
+      data: updateData,
       include: {
         assignee: { select: { id: true, name: true } },
-        client: { select: { id: true, name: true } }
+        client: { select: { id: true, name: true } },
+        collaborators: {
+          include: { user: { select: { id: true, name: true, email: true, avatarUrl: true } } }
+        }
       }
     });
 

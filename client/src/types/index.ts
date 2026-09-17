@@ -221,6 +221,7 @@ export interface Ticket {
   client?: { id: string; name: string };
   assignee?: User | null;
   creator?: { id: string; name: string };
+  collaborators?: Array<{ user: User }>;
   comments?: Array<{ id: string; content: string; createdAt: string; author: { id: string; name: string; avatarUrl?: string | null } }>;
   _count?: { comments: number };
 }
