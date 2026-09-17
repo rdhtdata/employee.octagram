@@ -54,8 +54,26 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({ onLoginSucces
         {/* Login Card */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl space-y-5">
           {errorMessage && (
-            <div className="p-3 rounded-lg bg-rose-950/60 border border-rose-800/80 text-rose-300 text-xs flex items-center gap-2">
-              <span className="font-semibold">Error:</span> {errorMessage}
+            <div className={`p-3 rounded-lg border text-xs space-y-2 ${
+              errorMessage.includes('locked') 
+                ? 'bg-purple-950/40 border-purple-800/80 text-purple-200' 
+                : 'bg-rose-950/60 border-rose-800/80 text-rose-300'
+            }`}>
+              <div className="flex items-start gap-2">
+                <span className="font-semibold shrink-0">
+                  {errorMessage.includes('locked') ? '🛡️ Security Lockout:' : 'Error:'}
+                </span>
+                <span className="leading-relaxed">{errorMessage}</span>
+              </div>
+              {errorMessage.includes('locked') && (
+                <button
+                  type="button"
+                  onClick={() => setIsForgotModalOpen(true)}
+                  className="text-xs text-purple-300 underline font-medium hover:text-purple-100 cursor-pointer block mt-1"
+                >
+                  Need immediate help? Contact Harsh →
+                </button>
+              )}
             </div>
           )}
 
