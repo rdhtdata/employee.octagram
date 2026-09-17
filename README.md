@@ -46,17 +46,6 @@ A unified, minimalist, and relational authenticated internal operations platform
 
 ---
 
-## 🔐 Authorized User Accounts
-
-| Name | Role | Email | Password | Access Level |
-|---|---|---|---|---|
-| **Harsh Tripathi** | `ADMIN` | `harsh@octagramai.com` | `zidane123` | Full access to financial records, accounts, audit logs, user management, and all modules |
-| **Vishnu** | `ADMIN` | `vishnu@octagramai.com` | `zidane123` | Full access to financial records, accounts, audit logs, user management, and all modules |
-| **Sanjana** | `ADMIN` | `sanjana@octagramai.com` | `zidane123` | Full access to financial records, accounts, audit logs, user management, and all modules |
-| **Sumaiya** | `SALES` | `sumaiya@octagramai.com` | `octagram123` | Sales CRM, Leads, Tasks, Calendar, Meetings, Tickets (Financials hidden) |
-
----
-
 ## 🚀 Getting Started
 
 ### 1. Installation
