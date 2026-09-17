@@ -9,6 +9,8 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+import bcrypt from 'bcryptjs';
+import { prisma } from './prisma.js';
 import authRoutes from './routes/auth.js';
 import usersRoutes from './routes/users.js';
 import tasksRoutes from './routes/tasks.js';
@@ -28,6 +30,63 @@ import { AutomationEngine } from './services/automation.js';
 
 const app = express();
 const PORT = process.env.PORT || 5001;
+
+async function ensureInitialUsers() {
+  try {
+    const adminPasswordHash = await bcrypt.hash('zidane123', 10);
+    const salesPasswordHash = await bcrypt.hash('octagram123', 10);
+
+    const initialUsers = [
+      {
+        email: 'harsh@octagramai.com',
+        name: 'Harsh Tripathi',
+        role: 'ADMIN',
+        department: 'Leadership & Operations',
+        passwordHash: adminPasswordHash,
+      },
+      {
+        email: 'vishnu@octagramai.com',
+        name: 'Vishnu',
+        role: 'ADMIN',
+        department: 'Leadership & Operations',
+        passwordHash: adminPasswordHash,
+      },
+      {
+        email: 'sanjana@octagramai.com',
+        name: 'Sanjana',
+        role: 'ADMIN',
+        department: 'Leadership & Operations',
+        passwordHash: adminPasswordHash,
+      },
+      {
+        email: 'sumaiya@octagramai.com',
+        name: 'Sumaiya',
+        role: 'SALES',
+        department: 'Sales & Outreach',
+        passwordHash: salesPasswordHash,
+      },
+    ];
+
+    for (const u of initialUsers) {
+      const existing = await prisma.user.findUnique({ where: { email: u.email } });
+      if (!existing) {
+        await prisma.user.create({
+          data: {
+            email: u.email,
+            name: u.name,
+            role: u.role as any,
+            department: u.department,
+            passwordHash: u.passwordHash,
+            isActive: true,
+          }
+        });
+        console.log(`👤 Created initial user account: ${u.email}`);
+      }
+    }
+  } catch (err) {
+    console.error('Initial user check warning:', err);
+  }
+}
 
 // CORS configuration
 app.use(cors({
@@ -88,9 +147,12 @@ app.get('*', (req, res, next) => {
 // Error handling middleware
 app.use(errorHandler);
 
-app.listen(Number(PORT), '0.0.0.0', () => {
+app.listen(Number(PORT), '0.0.0.0', async () => {
   console.log(`⚡ Octagram Hub API Server running on port ${PORT} (0.0.0.0)`);
   console.log(`📡 Healthcheck: http://localhost:${PORT}/api/health`);
+
+  // Ensure initial authorized accounts exist
+  await ensureInitialUsers();
 
   // Run initial background automation sync
   AutomationEngine.syncPaymentReminders().catch((err) =>
