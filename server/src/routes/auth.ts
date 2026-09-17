@@ -175,8 +175,10 @@ router.get('/me', requireAuth, async (req: AuthenticatedRequest, res: Response):
   }
 });
 
+import { passwordResetLimiter } from '../middleware/security.js';
+
 // POST /api/auth/reset-password
-router.post('/reset-password', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+router.post('/reset-password', requireAuth, passwordResetLimiter, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { currentPassword, newPassword } = req.body;
     if (!newPassword || newPassword.length < 6) {

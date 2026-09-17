@@ -5,6 +5,7 @@ import { api } from '../../services/api.js';
 import { Lead, User } from '../../types/index.js';
 import { PriorityBadge, StatusBadge, Badge } from '../../components/common/Badge.js';
 import { Button } from '../../components/common/Button.js';
+import { sanitizeExternalUrl } from '../../utils/url.js';
 import { Drawer } from '../../components/common/Drawer.js';
 import { Modal } from '../../components/common/Modal.js';
 import { EmptyState } from '../../components/common/EmptyState.js';
@@ -1185,9 +1186,9 @@ export const CRMPage: React.FC<CRMPageProps> = ({
                         <div className="flex items-center gap-2">
                           {lead.googleMapsUrl && (
                             <a
-                              href={lead.googleMapsUrl}
+                              href={sanitizeExternalUrl(lead.googleMapsUrl)}
                               target="_blank"
-                              rel="noreferrer"
+                              rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
                               className="px-2 py-0.5 bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-400 border border-emerald-900/50 rounded text-[10px] font-medium flex items-center gap-1 transition-colors"
                             >
@@ -1196,9 +1197,9 @@ export const CRMPage: React.FC<CRMPageProps> = ({
                           )}
                           {lead.websiteUrl && (
                             <a
-                              href={lead.websiteUrl}
+                              href={sanitizeExternalUrl(lead.websiteUrl)}
                               target="_blank"
-                              rel="noreferrer"
+                              rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
                               className="px-2 py-0.5 bg-sky-950/60 hover:bg-sky-900/60 text-sky-400 border border-sky-900/50 rounded text-[10px] font-medium flex items-center gap-1 transition-colors"
                             >
@@ -1385,9 +1386,9 @@ export const CRMPage: React.FC<CRMPageProps> = ({
                 <span className="text-zinc-500 block mb-0.5 font-medium">Website</span>
                 {selectedLead.websiteUrl ? (
                   <a
-                    href={selectedLead.websiteUrl}
+                    href={sanitizeExternalUrl(selectedLead.websiteUrl)}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
                     className="text-sky-400 hover:underline flex items-center gap-1"
                   >
                     Open Website <ExternalLink className="w-3 h-3" />
@@ -1416,9 +1417,9 @@ export const CRMPage: React.FC<CRMPageProps> = ({
                 <p className="text-zinc-200 leading-relaxed">{selectedLead.address || 'Address not listed'}</p>
                 {selectedLead.googleMapsUrl && (
                   <a
-                    href={selectedLead.googleMapsUrl}
+                    href={sanitizeExternalUrl(selectedLead.googleMapsUrl)}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
                     className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-400 border border-emerald-900/50 font-medium text-xs transition-colors"
                   >
                     <MapPin className="w-3 h-3" /> View Location on Google Maps

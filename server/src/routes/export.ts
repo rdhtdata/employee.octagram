@@ -4,10 +4,36 @@ import { prisma } from '../prisma.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { AuthenticatedRequest } from '../types/index.js';
 
+import { exportLimiter } from '../middleware/security.js';
+
 const router = Router();
 
+/**
+ * Neutralizes CSV Formula Injection (DDE attacks).
+ * Prepends a single quote if string starts with dangerous formula prefixes (=, +, -, @, \t, \r, |).
+ */
+function sanitizeCsvCell(value: any): any {
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  if (!trimmed) return value;
+
+  const firstChar = trimmed.charAt(0);
+  if (['=', '+', '-', '@', '\t', '\r', '|'].includes(firstChar)) {
+    return `'${value}`;
+  }
+  return value;
+}
+
+function sanitizeRow<T extends Record<string, any>>(row: T): T {
+  const cleanRow: Record<string, any> = {};
+  for (const [k, v] of Object.entries(row)) {
+    cleanRow[k] = sanitizeCsvCell(v);
+  }
+  return cleanRow as T;
+}
+
 // GET /api/export/:entity - Export data to CSV (Admin only)
-router.get('/:entity', requireAuth, requireRole('ADMIN'), async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+router.get('/:entity', requireAuth, requireRole('ADMIN'), exportLimiter, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const entity = req.params.entity as string;
     let data: any[] = [];
@@ -17,7 +43,7 @@ router.get('/:entity', requireAuth, requireRole('ADMIN'), async (req: Authentica
       const clients = await prisma.client.findMany({
         include: { accountManager: { select: { name: true } } }
       });
-      data = clients.map(c => ({
+      data = clients.map(c => sanitizeRow({
         ID: c.id,
         Name: c.name,
         Industry: c.industry || '',
@@ -33,7 +59,7 @@ router.get('/:entity', requireAuth, requireRole('ADMIN'), async (req: Authentica
       const leads = await prisma.lead.findMany({
         include: { assignedUser: { select: { name: true } } }
       });
-      data = leads.map(l => ({
+      data = leads.map(l => sanitizeRow({
         ID: l.id,
         BusinessName: l.businessName,
         Category: l.category || '',
@@ -59,7 +85,7 @@ router.get('/:entity', requireAuth, requireRole('ADMIN'), async (req: Authentica
           lead: { select: { businessName: true } }
         }
       });
-      data = tasks.map(t => ({
+      data = tasks.map(t => sanitizeRow({
         ID: t.id,
         Title: t.title,
         Priority: t.priority,
@@ -77,7 +103,7 @@ router.get('/:entity', requireAuth, requireRole('ADMIN'), async (req: Authentica
           responsibleUser: { select: { name: true } }
         }
       });
-      data = payments.map(p => ({
+      data = payments.map(p => sanitizeRow({
         ID: p.id,
         Client: p.client.name,
         Amount: p.amount,
@@ -92,7 +118,7 @@ router.get('/:entity', requireAuth, requireRole('ADMIN'), async (req: Authentica
       const expenses = await prisma.expense.findMany({
         include: { responsibleUser: { select: { name: true } } }
       });
-      data = expenses.map(e => ({
+      data = expenses.map(e => sanitizeRow({
         ID: e.id,
         Vendor: e.vendor,
         Category: e.category,
@@ -109,7 +135,7 @@ router.get('/:entity', requireAuth, requireRole('ADMIN'), async (req: Authentica
         orderBy: { createdAt: 'desc' },
         take: 500
       });
-      data = logs.map(l => ({
+      data = logs.map(l => sanitizeRow({
         Timestamp: l.createdAt.toISOString(),
         User: l.user?.name || 'System',
         Action: l.action,

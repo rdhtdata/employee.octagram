@@ -108,19 +108,37 @@ async function ensureInitialUsers() {
   }
 }
 
-// CORS configuration
+import { securityHeaders, globalApiLimiter, validateOrigin } from './middleware/security.js';
+
+// Apply defensive security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options)
+app.use(securityHeaders);
+
+// Hardened CORS configuration
 app.use(cors({
-  origin: true,
+  origin: validateOrigin,
   credentials: true,
+  methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }));
+
+// Apply global API rate limiter
+app.use('/api', globalApiLimiter);
+
+// Prevent caching of sensitive API data by proxies or shared browsers
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
 
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
 
-app.use(express.json({ limit: '20mb' }));
-app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

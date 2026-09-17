@@ -5,6 +5,7 @@ import { api } from '../../services/api.js';
 import { Client, Task, Meeting, Payment, Ticket, Communication, ClientNote, User as UserType } from '../../types/index.js';
 import { StatusBadge, PriorityBadge } from '../../components/common/Badge.js';
 import { Button } from '../../components/common/Button.js';
+import { sanitizeExternalUrl } from '../../utils/url.js';
 import { Tabs } from '../../components/common/Tabs.js';
 import { Modal } from '../../components/common/Modal.js';
 import { EmptyState } from '../../components/common/EmptyState.js';
@@ -415,12 +416,12 @@ export const ClientWorkspacePage: React.FC<ClientWorkspacePageProps> = ({
               <span className="text-[11px] text-zinc-500 block mb-1">Website</span>
               {client.website ? (
                 <a
-                  href={client.website}
+                  href={sanitizeExternalUrl(client.website)}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className="text-sky-400 hover:underline flex items-center gap-1 font-mono text-[11px] py-1"
                 >
-                  {client.website.replace('https://', '')} <ExternalLink className="w-3 h-3" />
+                  {client.website.replace(/^https?:\/\//, '')} <ExternalLink className="w-3 h-3" />
                 </a>
               ) : (
                 <span className="text-zinc-500 py-1 block">None</span>

@@ -6,10 +6,37 @@ import { AuthenticatedRequest } from '../types/index.js';
 import { logActivity } from '../services/auditLogger.js';
 import { LeadParserService, NormalizedLead } from '../services/leadParser.js';
 
+import path from 'path';
+import { importLimiter } from '../middleware/security.js';
+
 const router = Router();
+
+const ALLOWED_EXTENSIONS = new Set(['.xlsx', '.xls', '.csv']);
+const ALLOWED_MIME_TYPES = new Set([
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+  'text/csv',
+  'application/csv',
+  'text/plain',
+  'application/octet-stream',
+]);
+
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB per file
+    files: 10,                  // Max 10 files
+  },
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!ALLOWED_EXTENSIONS.has(ext)) {
+      return cb(new Error(`Invalid file type "${ext}". Only .xlsx, .xls, and .csv files are supported.`));
+    }
+    if (file.mimetype && !ALLOWED_MIME_TYPES.has(file.mimetype.toLowerCase())) {
+      return cb(new Error(`Unsupported file MIME type "${file.mimetype}".`));
+    }
+    cb(null, true);
+  },
 });
 
 // GET /api/leads - Lead list with rich filters
@@ -474,7 +501,7 @@ router.post('/:id/convert', requireAuth, async (req: AuthenticatedRequest, res: 
 });
 
 // POST /api/leads/import/preview - Multi-file upload preview and duplicate detection
-router.post('/import/preview', requireAuth, upload.array('files', 10), async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+router.post('/import/preview', requireAuth, importLimiter, upload.array('files', 10), async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const files = req.files as Express.Multer.File[];
     if (!files || files.length === 0) {
@@ -486,12 +513,14 @@ router.post('/import/preview', requireAuth, upload.array('files', 10), async (re
     const parseErrors: { file: string; row: number; reason: string }[] = [];
 
     for (const file of files) {
+      // Sanitize original file name
+      const safeFileName = path.basename(file.originalname).replace(/[^a-zA-Z0-9._-]/g, '_');
       try {
-        const { rows, errors } = LeadParserService.parseFileBuffer(file.buffer, file.originalname);
+        const { rows, errors } = LeadParserService.parseFileBuffer(file.buffer, safeFileName);
         allNormalized = allNormalized.concat(rows);
-        errors.forEach(e => parseErrors.push({ file: file.originalname, ...e }));
+        errors.forEach(e => parseErrors.push({ file: safeFileName, ...e }));
       } catch (err: any) {
-        parseErrors.push({ file: file.originalname, row: 0, reason: `Failed to parse file: ${err.message}` });
+        parseErrors.push({ file: safeFileName, row: 0, reason: `Failed to parse file: ${err.message}` });
       }
     }
 
@@ -517,7 +546,7 @@ router.post('/import/preview', requireAuth, upload.array('files', 10), async (re
 });
 
 // POST /api/leads/import/confirm - Batch import with duplicate resolution
-router.post('/import/confirm', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+router.post('/import/confirm', requireAuth, importLimiter, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { uniqueLeads, resolvedDuplicates, assignedUserId } = req.body;
 
