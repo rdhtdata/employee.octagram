@@ -11,17 +11,24 @@ const JWT_SECRET = process.env.JWT_SECRET || 'octagram-operations-hub-secure-jwt
 
 // POST /api/auth/login
 router.post('/login', async (req, res): Promise<void> => {
+  console.log('🔑 [AUTH] POST /api/auth/login received:', {
+    hasBody: !!req.body,
+    email: req.body?.email,
+  });
+
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body || {};
 
     if (!email || !password) {
+      console.warn('⚠️ [AUTH] Missing email or password');
       res.status(400).json({ error: 'Email and password are required.' });
       return;
     }
 
-    const input = email.toLowerCase().trim();
+    const input = String(email).toLowerCase().trim();
     const candidateEmail = input.includes('@') ? input : `${input}@octagramai.com`;
 
+    console.log(`🔍 [AUTH] Searching for user: "${input}" or "${candidateEmail}"`);
     const user = await prisma.user.findFirst({
       where: {
         OR: [
@@ -31,16 +38,28 @@ router.post('/login', async (req, res): Promise<void> => {
       }
     });
 
-    if (!user || !user.isActive) {
+    if (!user) {
+      console.warn(`⚠️ [AUTH] User not found for: "${input}" / "${candidateEmail}"`);
       res.status(401).json({ error: 'Invalid email or password. Please try again.' });
       return;
     }
 
+    if (!user.isActive) {
+      console.warn(`⚠️ [AUTH] User account is inactive: "${user.email}"`);
+      res.status(401).json({ error: 'User account is inactive. Please contact your administrator.' });
+      return;
+    }
+
+    console.log(`🔐 [AUTH] Comparing password for user "${user.email}"...`);
     const isMatch = await bcrypt.compare(password, user.passwordHash);
+
     if (!isMatch) {
+      console.warn(`⚠️ [AUTH] Password mismatch for user "${user.email}"`);
       res.status(401).json({ error: 'Invalid email or password. Please try again.' });
       return;
     }
+
+    console.log(`✅ [AUTH] Password verified successfully for "${user.email}" (${user.role})`);
 
     const payload: TokenPayload = {
       userId: user.id,
@@ -51,18 +70,16 @@ router.post('/login', async (req, res): Promise<void> => {
 
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
 
-    try {
-      await logActivity({
-        userId: user.id,
-        action: 'STATUS_CHANGE',
-        entityType: 'USER',
-        entityId: user.id,
-        details: { action: 'USER_LOGIN', ip: req.ip }
-      });
-    } catch (logErr) {
-      console.warn('Audit logging non-fatal error:', logErr);
-    }
+    // Non-blocking background audit log
+    logActivity({
+      userId: user.id,
+      action: 'STATUS_CHANGE',
+      entityType: 'USER',
+      entityId: user.id,
+      details: { action: 'USER_LOGIN', ip: req.ip }
+    }).catch(logErr => console.warn('Audit logging non-fatal error:', logErr));
 
+    console.log(`🚀 [AUTH] Login successful! Returning token for "${user.email}"`);
     res.json({
       token,
       user: {
@@ -76,7 +93,7 @@ router.post('/login', async (req, res): Promise<void> => {
       }
     });
   } catch (error: any) {
-    console.error('Login error:', error);
+    console.error('❌ [AUTH] Login exception caught:', error);
     res.status(500).json({ error: error?.message || 'Authentication failed. Please try again later.' });
   }
 });

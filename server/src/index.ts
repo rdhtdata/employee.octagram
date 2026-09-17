@@ -146,25 +146,32 @@ app.get('*', (req, res, next) => {
 // Error handling middleware
 app.use(errorHandler);
 
+import { initializeDatabasePragmas } from './prisma.js';
+
 app.listen(PORT, async () => {
   console.log(`⚡ Octagram Hub API Server running on port: ${PORT}`);
   console.log(`📡 Healthcheck: http://localhost:${PORT}/api/health`);
 
+  // Initialize SQLite WAL mode & locks
+  await initializeDatabasePragmas();
+
   // Ensure initial authorized accounts exist
   await ensureInitialUsers();
 
-  // Run initial background automation sync
-  AutomationEngine.syncPaymentReminders().catch((err) =>
-    console.error('Initial payment reminder sync failed:', err)
-  );
-  AutomationEngine.syncLeadFollowUps().catch((err) =>
-    console.error('Initial lead followup sync failed:', err)
-  );
+  // Non-blocking delayed automation engine startup
+  setTimeout(() => {
+    AutomationEngine.syncPaymentReminders().catch((err) =>
+      console.error('Payment reminder sync warning:', err)
+    );
+    AutomationEngine.syncLeadFollowUps().catch((err) =>
+      console.error('Lead followup sync warning:', err)
+    );
+  }, 3000);
 
   // Periodic automation interval every 5 minutes
   setInterval(() => {
     AutomationEngine.syncPaymentReminders().catch((err) =>
-      console.error('Periodic payment reminder sync failed:', err)
+      console.error('Periodic payment reminder sync warning:', err)
     );
   }, 5 * 60 * 1000);
 });
