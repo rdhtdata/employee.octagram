@@ -35,7 +35,7 @@ router.get('/events', requireAuth, async (req: AuthenticatedRequest, res: Respon
         date: { gte: startDate, lte: endDate }
       };
       if (isSales) {
-        meetingsWhere.clientId = null;
+        meetingsWhere.relatedClientId = null;
       }
       if (userId) {
         meetingsWhere.participants = { some: { userId: userId as string } };
@@ -51,6 +51,8 @@ router.get('/events', requireAuth, async (req: AuthenticatedRequest, res: Respon
       });
 
       meetings.forEach(m => {
+        if (isSales && (m.relatedClientId || m.client)) return; // Strictly ignore client meetings for sales
+
         const dateStr = m.date.toISOString().split('T')[0];
         const startDateTime = new Date(`${dateStr}T${m.startTime || '09:00'}:00`);
         const endDateTime = new Date(`${dateStr}T${m.endTime || '10:00'}:00`);
@@ -80,7 +82,7 @@ router.get('/events', requireAuth, async (req: AuthenticatedRequest, res: Respon
       };
       if (isSales) {
         tasksWhere.relatedClientId = null;
-        tasksWhere.automatedType = { not: 'PAYMENT_REMINDER' };
+        tasksWhere.automatedType = null;
       }
       if (userId) {
         tasksWhere.assignedUserId = userId as string;
@@ -96,6 +98,13 @@ router.get('/events', requireAuth, async (req: AuthenticatedRequest, res: Respon
       });
 
       tasks.forEach(t => {
+        if (isSales) {
+          if (t.relatedClientId || t.client) return;
+          if (t.automatedType === 'PAYMENT_REMINDER' || t.automatedType === 'EXPENSE_REMINDER') return;
+          const text = ((t.title || '') + ' ' + (t.description || '')).toLowerCase();
+          if (text.includes('payment') || text.includes('invoice') || text.includes('income due') || text.includes('expense')) return;
+        }
+
         events.push({
           id: `task-${t.id}`,
           title: `Task: ${t.title}`,
@@ -145,19 +154,12 @@ router.get('/events', requireAuth, async (req: AuthenticatedRequest, res: Respon
       });
     }
 
-    // 4. Payment Reminders / Income Due (Visible to Admins and Account Holder, Hidden from Sales)
-    if (!isSales && (!eventType || eventType === 'ALL' || eventType === 'PAYMENT_DUE')) {
+    // 4. Payment Reminders / Income Due (ADMIN ONLY)
+    if (isAdmin && (!eventType || eventType === 'ALL' || eventType === 'PAYMENT_DUE')) {
       const paymentWhere: any = {
         dueDate: { gte: startDate, lte: endDate },
         status: { notIn: ['PAID', 'CANCELLED'] }
       };
-
-      if (!isAdmin) {
-        paymentWhere.OR = [
-          { responsibleUserId: currentUserId },
-          { client: { accountManagerId: currentUserId } }
-        ];
-      }
 
       const payments = await prisma.payment.findMany({
         where: paymentWhere,
@@ -182,19 +184,12 @@ router.get('/events', requireAuth, async (req: AuthenticatedRequest, res: Respon
       });
     }
 
-    // 5. Expense Due Reminders (Visible to Admins and Account Holder, Hidden from Sales)
-    if (!isSales && (!eventType || eventType === 'ALL' || eventType === 'EXPENSE_DUE')) {
+    // 5. Expense Due Reminders (ADMIN ONLY)
+    if (isAdmin && (!eventType || eventType === 'ALL' || eventType === 'EXPENSE_DUE')) {
       const expenseWhere: any = {
         dueDate: { gte: startDate, lte: endDate },
         status: { notIn: ['PAID', 'CANCELLED'] }
       };
-
-      if (!isAdmin) {
-        expenseWhere.OR = [
-          { responsibleUserId: currentUserId },
-          { client: { accountManagerId: currentUserId } }
-        ];
-      }
 
       const expenses = await prisma.expense.findMany({
         where: expenseWhere,

@@ -70,7 +70,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response): P
     const isSales = req.user!.role === 'SALES';
     if (isSales) {
       where.relatedClientId = null;
-      where.automatedType = { not: 'PAYMENT_REMINDER' };
+      where.automatedType = null;
     }
 
     const tasks = await prisma.task.findMany({
@@ -94,7 +94,18 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response): P
       ]
     });
 
-    res.json({ tasks });
+    let results = tasks;
+    if (isSales) {
+      results = tasks.filter(t => {
+        if (t.relatedClientId || t.client) return false;
+        if (t.automatedType === 'PAYMENT_REMINDER' || t.automatedType === 'EXPENSE_REMINDER') return false;
+        const text = ((t.title || '') + ' ' + (t.description || '')).toLowerCase();
+        if (text.includes('payment') || text.includes('invoice') || text.includes('income due') || text.includes('expense') || text.includes('retainer')) return false;
+        return true;
+      });
+    }
+
+    res.json({ tasks: results });
   } catch (error) {
     console.error('Failed to fetch tasks:', error);
     res.status(500).json({ error: 'Failed to fetch tasks.' });
@@ -130,9 +141,12 @@ router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response)
       return;
     }
 
-    if (req.user!.role === 'SALES' && (task.relatedClientId || task.automatedType === 'PAYMENT_REMINDER')) {
-      res.status(403).json({ error: 'Access restricted: Sales representatives cannot access client or financial tasks.' });
-      return;
+    if (req.user!.role === 'SALES') {
+      const text = ((task.title || '') + ' ' + (task.description || '')).toLowerCase();
+      if (task.relatedClientId || task.client || task.automatedType === 'PAYMENT_REMINDER' || task.automatedType === 'EXPENSE_REMINDER' || text.includes('payment') || text.includes('invoice') || text.includes('income due') || text.includes('expense') || text.includes('retainer')) {
+        res.status(403).json({ error: 'Access restricted: Sales representatives cannot access client or financial tasks.' });
+        return;
+      }
     }
 
     res.json({ task });
@@ -280,9 +294,12 @@ router.patch('/:id', requireAuth, async (req: AuthenticatedRequest, res: Respons
       return;
     }
 
-    if (req.user!.role === 'SALES' && (existing.relatedClientId || existing.automatedType === 'PAYMENT_REMINDER')) {
-      res.status(403).json({ error: 'Access restricted: Sales representatives cannot modify client or financial tasks.' });
-      return;
+    if (req.user!.role === 'SALES') {
+      const text = ((existing.title || '') + ' ' + (existing.description || '')).toLowerCase();
+      if (existing.relatedClientId || existing.automatedType === 'PAYMENT_REMINDER' || existing.automatedType === 'EXPENSE_REMINDER' || text.includes('payment') || text.includes('invoice') || text.includes('income due') || text.includes('expense') || text.includes('retainer')) {
+        res.status(403).json({ error: 'Access restricted: Sales representatives cannot modify client or financial tasks.' });
+        return;
+      }
     }
 
     const updateData: any = {};
@@ -356,9 +373,12 @@ router.delete('/:id', requireAuth, async (req: AuthenticatedRequest, res: Respon
       return;
     }
 
-    if (req.user!.role === 'SALES' && (task.relatedClientId || task.automatedType === 'PAYMENT_REMINDER')) {
-      res.status(403).json({ error: 'Access restricted: Sales representatives cannot delete client or financial tasks.' });
-      return;
+    if (req.user!.role === 'SALES') {
+      const text = ((task.title || '') + ' ' + (task.description || '')).toLowerCase();
+      if (task.relatedClientId || task.automatedType === 'PAYMENT_REMINDER' || task.automatedType === 'EXPENSE_REMINDER' || text.includes('payment') || text.includes('invoice') || text.includes('income due') || text.includes('expense') || text.includes('retainer')) {
+        res.status(403).json({ error: 'Access restricted: Sales representatives cannot delete client or financial tasks.' });
+        return;
+      }
     }
 
     await prisma.task.delete({ where: { id } });
@@ -388,9 +408,12 @@ router.post('/:id/comments', requireAuth, async (req: AuthenticatedRequest, res:
       return;
     }
 
-    if (req.user!.role === 'SALES' && (task.relatedClientId || task.automatedType === 'PAYMENT_REMINDER')) {
-      res.status(403).json({ error: 'Access restricted: Sales representatives cannot comment on client or financial tasks.' });
-      return;
+    if (req.user!.role === 'SALES') {
+      const text = ((task.title || '') + ' ' + (task.description || '')).toLowerCase();
+      if (task.relatedClientId || task.automatedType === 'PAYMENT_REMINDER' || task.automatedType === 'EXPENSE_REMINDER' || text.includes('payment') || text.includes('invoice') || text.includes('income due') || text.includes('expense') || text.includes('retainer')) {
+        res.status(403).json({ error: 'Access restricted: Sales representatives cannot comment on client or financial tasks.' });
+        return;
+      }
     }
 
     const { content } = req.body;

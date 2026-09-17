@@ -59,14 +59,29 @@ export const TasksPage: React.FC<{ initialTaskId?: string }> = ({ initialTaskId 
       if (searchQuery.trim()) params.search = searchQuery.trim();
 
       const res = await api.tasks.list(params);
-      setTasks(res.tasks || []);
+      const isSales = user?.role === 'SALES';
+      let fetched = res.tasks || [];
+      if (isSales) {
+        fetched = fetched.filter((t: Task) => {
+          if (t.relatedClientId || t.client) return false;
+          if (t.automatedType === 'PAYMENT_REMINDER' || t.automatedType === 'EXPENSE_REMINDER') return false;
+          const text = ((t.title || '') + ' ' + (t.description || '')).toLowerCase();
+          if (text.includes('payment') || text.includes('invoice') || text.includes('income due') || text.includes('expense') || text.includes('retainer')) return false;
+          return true;
+        });
+      }
+      setTasks(fetched);
 
       // If initialTaskId provided, select it
       if (initialTaskId && !selectedTask) {
-        const found = res.tasks?.find((t: Task) => t.id === initialTaskId);
+        const found = fetched.find((t: Task) => t.id === initialTaskId);
         if (found) setSelectedTask(found);
         else {
-          api.tasks.get(initialTaskId).then(tRes => setSelectedTask(tRes.task)).catch(() => {});
+          api.tasks.get(initialTaskId).then(tRes => {
+            if (!isSales || (!tRes.task?.relatedClientId && !tRes.task?.client)) {
+              setSelectedTask(tRes.task);
+            }
+          }).catch(() => {});
         }
       }
     } catch (err) {

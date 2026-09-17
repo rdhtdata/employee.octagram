@@ -40,7 +40,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response): P
     }> = [];
 
     // Urgent Tasks
-    const urgentTasks = await prisma.task.findMany({
+    const urgentTasksRaw = await prisma.task.findMany({
       where: {
         AND: [
           isAdmin ? {} : {
@@ -50,7 +50,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response): P
               { isPersonal: true, createdById: currentUserId }
             ]
           },
-          isSales ? { relatedClientId: null, automatedType: { not: 'PAYMENT_REMINDER' } } : {},
+          isSales ? { relatedClientId: null, automatedType: null } : {},
           { status: { notIn: ['COMPLETED', 'CANCELLED'] } },
           {
             OR: [
@@ -65,9 +65,17 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response): P
         client: { select: { id: true, name: true } },
         lead: { select: { id: true, businessName: true } },
       },
-      take: 6,
+      take: 12,
       orderBy: [{ deadline: 'asc' }, { priority: 'desc' }]
     });
+
+    const urgentTasks = isSales ? urgentTasksRaw.filter(t => {
+      if (t.relatedClientId || t.client) return false;
+      if (t.automatedType === 'PAYMENT_REMINDER' || t.automatedType === 'EXPENSE_REMINDER') return false;
+      const text = ((t.title || '') + ' ' + (t.description || '')).toLowerCase();
+      if (text.includes('payment') || text.includes('invoice') || text.includes('income due') || text.includes('expense') || text.includes('retainer')) return false;
+      return true;
+    }).slice(0, 6) : urgentTasksRaw.slice(0, 6);
 
     urgentTasks.forEach(t => {
       let urgency: 'OVERDUE' | 'DUE_TODAY' | 'DUE_SOON' | 'CRITICAL' = 'DUE_SOON';
@@ -152,10 +160,10 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response): P
     };
     if (isSales) {
       myTasksWhere.relatedClientId = null;
-      myTasksWhere.automatedType = { not: 'PAYMENT_REMINDER' };
+      myTasksWhere.automatedType = null;
     }
 
-    const myTasks = await prisma.task.findMany({
+    const myTasksRaw = await prisma.task.findMany({
       where: myTasksWhere,
       include: {
         client: { select: { id: true, name: true } },
@@ -164,6 +172,14 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response): P
       },
       orderBy: [{ status: 'asc' }, { deadline: 'asc' }, { priority: 'desc' }]
     });
+
+    const myTasks = isSales ? myTasksRaw.filter(t => {
+      if (t.relatedClientId || t.client) return false;
+      if (t.automatedType === 'PAYMENT_REMINDER' || t.automatedType === 'EXPENSE_REMINDER') return false;
+      const text = ((t.title || '') + ' ' + (t.description || '')).toLowerCase();
+      if (text.includes('payment') || text.includes('invoice') || text.includes('income due') || text.includes('expense') || text.includes('retainer')) return false;
+      return true;
+    }) : myTasksRaw;
 
     const myTasksToday = myTasks.filter(t => t.deadline && t.deadline >= startOfToday && t.deadline <= endOfToday && t.status !== 'COMPLETED');
     const myTasksOverdue = myTasks.filter(t => t.deadline && t.deadline < startOfToday && t.status !== 'COMPLETED');
@@ -177,19 +193,27 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response): P
     };
     if (isSales) {
       teamTasksWhere.relatedClientId = null;
-      teamTasksWhere.automatedType = { not: 'PAYMENT_REMINDER' };
+      teamTasksWhere.automatedType = null;
     }
 
-    const teamTasks = await prisma.task.findMany({
+    const teamTasksRaw = await prisma.task.findMany({
       where: teamTasksWhere,
       include: {
         assignee: { select: { id: true, name: true, avatarUrl: true } },
         client: { select: { id: true, name: true } },
         lead: { select: { id: true, businessName: true } },
       },
-      take: 8,
+      take: 16,
       orderBy: [{ deadline: 'asc' }, { priority: 'desc' }]
     });
+
+    const teamTasks = isSales ? teamTasksRaw.filter(t => {
+      if (t.relatedClientId || t.client) return false;
+      if (t.automatedType === 'PAYMENT_REMINDER' || t.automatedType === 'EXPENSE_REMINDER') return false;
+      const text = ((t.title || '') + ' ' + (t.description || '')).toLowerCase();
+      if (text.includes('payment') || text.includes('invoice') || text.includes('income due') || text.includes('expense') || text.includes('retainer')) return false;
+      return true;
+    }).slice(0, 8) : teamTasksRaw.slice(0, 8);
 
     // 4. Upcoming Meetings & Reminders
     const upcomingMeetings = await prisma.meeting.findMany({

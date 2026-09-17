@@ -58,10 +58,21 @@ export const CalendarPage: React.FC<{ initialMeetingId?: string; onNavigate: (pa
       if (selectedEventType !== 'ALL') params.eventType = selectedEventType;
 
       const res = await api.calendar.getEvents(params);
-      setEvents(res.events || []);
+      const isSales = user?.role === 'SALES';
+      let fetched = res.events || [];
+      if (isSales) {
+        fetched = fetched.filter((e: CalendarEvent) => {
+          if (e.type === 'PAYMENT_DUE' || e.type === 'EXPENSE_DUE') return false;
+          if (e.relatedEntity && e.relatedEntity.type === 'CLIENT') return false;
+          const text = (e.title || '').toLowerCase();
+          if (text.includes('payment') || text.includes('income due') || text.includes('expense') || text.includes('invoice') || text.includes('retainer')) return false;
+          return true;
+        });
+      }
+      setEvents(fetched);
 
       if (initialMeetingId && !selectedEvent) {
-        const found = res.events?.find((e: any) => e.id.includes(initialMeetingId));
+        const found = fetched.find((e: any) => e.id.includes(initialMeetingId));
         if (found) setSelectedEvent(found);
       }
     } catch (err) {
