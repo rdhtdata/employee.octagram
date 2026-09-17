@@ -26,7 +26,10 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 
-export const TasksPage: React.FC<{ initialTaskId?: string }> = ({ initialTaskId }) => {
+export const TasksPage: React.FC<{
+  initialTaskId?: string;
+  initialView?: 'my' | 'team' | 'today' | 'overdue' | 'upcoming' | 'all';
+}> = ({ initialTaskId, initialView }) => {
   const { user, isAdmin } = useAuth();
   const { showToast } = useNotification();
 
@@ -36,7 +39,7 @@ export const TasksPage: React.FC<{ initialTaskId?: string }> = ({ initialTaskId 
   const [isLoading, setIsLoading] = useState(true);
 
   // Filters
-  const [activeView, setActiveView] = useState<'my' | 'team' | 'today' | 'overdue' | 'upcoming' | 'all'>('my');
+  const [activeView, setActiveView] = useState<'my' | 'team' | 'today' | 'overdue' | 'upcoming' | 'all'>(initialView || 'my');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [priorityFilter, setPriorityFilter] = useState('ALL');

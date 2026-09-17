@@ -62,7 +62,13 @@ const AppContent: React.FC = () => {
   const renderCurrentPage = () => {
     // Tasks
     if (pathOnly === '/tasks') {
-      return <TasksPage key="tasks-page" initialTaskId={searchParams.get('taskId') || undefined} />;
+      return (
+        <TasksPage
+          key={`tasks-page-${searchParams.get('view') || 'my'}`}
+          initialTaskId={searchParams.get('taskId') || undefined}
+          initialView={(searchParams.get('view') as any) || undefined}
+        />
+      );
     }
 
     // CRM

@@ -99,14 +99,45 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenQuickAct
     );
   }
 
-  const priorityItems = data?.priorityItems || [];
-  const myTasks = data?.myTasks || { today: [], overdue: [], upcoming: [], completed: [] };
-  const teamTasks = data?.teamTasks || [];
-  const upcomingMeetings = data?.upcomingMeetings || [];
-  const recentActivity = data?.recentActivity || [];
+  const isSales = user?.role === 'SALES';
+
+  const filterSalesTask = (t: Task) => {
+    if (!isSales) return true;
+    if (t.relatedClientId || t.client) return false;
+    if (t.automatedType === 'PAYMENT_REMINDER' || t.automatedType === 'EXPENSE_REMINDER') return false;
+    const text = ((t.title || '') + ' ' + (t.description || '')).toLowerCase();
+    if (text.includes('payment') || text.includes('invoice') || text.includes('income due') || text.includes('expense') || text.includes('retainer')) return false;
+    return true;
+  };
+
+  const priorityItems = (data?.priorityItems || []).filter((item: any) => {
+    if (!isSales) return true;
+    if (item.type === 'PAYMENT') return false;
+    const text = ((item.title || '') + ' ' + (item.subtitle || '')).toLowerCase();
+    if (text.includes('payment') || text.includes('invoice') || text.includes('income due') || text.includes('expense') || text.includes('retainer') || text.includes('client:')) return false;
+    return true;
+  });
+
+  const rawMyTasks = data?.myTasks || { today: [], overdue: [], upcoming: [], completed: [] };
+  const myTasks = {
+    today: (rawMyTasks.today || []).filter(filterSalesTask),
+    overdue: (rawMyTasks.overdue || []).filter(filterSalesTask),
+    upcoming: (rawMyTasks.upcoming || []).filter(filterSalesTask),
+    completed: (rawMyTasks.completed || []).filter(filterSalesTask),
+    totalOpenCount: 0,
+  };
+  myTasks.totalOpenCount = myTasks.today.length + myTasks.overdue.length + myTasks.upcoming.length;
+
+  const teamTasks = (data?.teamTasks || []).filter(filterSalesTask);
+  const upcomingMeetings = (data?.upcomingMeetings || []).filter((m: Meeting) => !isSales || (!m.relatedClientId && !m.client));
+  const recentActivity = (data?.recentActivity || []).filter((act: ActivityLog) => {
+    if (!isSales) return true;
+    if (act.entityType === 'PAYMENT' || act.entityType === 'EXPENSE' || act.entityType === 'CLIENT') return false;
+    return true;
+  });
   const adminStats = data?.adminStats;
 
-  const currentTasksList: Task[] = myTasks[activeTaskTab] || [];
+  const currentTasksList: Task[] = (myTasks as any)[activeTaskTab] || [];
 
   return (
     <div className="space-y-6">
