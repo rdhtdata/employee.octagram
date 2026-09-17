@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../../context/AuthContext.js';
 import { api } from '../../services/api.js';
 import { Search, Building2, Target, CheckSquare, Calendar, Ticket, User, ArrowRight, Loader2 } from 'lucide-react';
 import { PriorityBadge, StatusBadge } from '../common/Badge.js';
@@ -10,6 +11,7 @@ interface GlobalSearchModalProps {
 }
 
 export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, onClose, onNavigate }) => {
+  const { user } = useAuth();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -85,7 +87,11 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
   };
 
   const handleSelect = (item: any) => {
-    onNavigate(item.url);
+    if (user?.role === 'SALES' && item.type === 'CLIENT') {
+      onNavigate('/clients');
+    } else {
+      onNavigate(item.url);
+    }
     onClose();
   };
 

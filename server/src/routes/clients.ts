@@ -57,6 +57,12 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response): P
 // GET /api/clients/:id - Detailed client workspace
 router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
+    // Sales users are restricted from detailed client account workspaces
+    if (req.user!.role === 'SALES') {
+      res.status(403).json({ error: 'Access restricted: Sales representatives can view the client directory but cannot access individual client accounts.' });
+      return;
+    }
+
     const id = req.params.id as string;
     const isAdmin = req.user!.role === 'ADMIN';
 
@@ -197,6 +203,11 @@ router.post('/', requireAuth, async (req: AuthenticatedRequest, res: Response): 
 // PATCH /api/clients/:id - Update client
 router.patch('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
+    if (req.user!.role === 'SALES') {
+      res.status(403).json({ error: 'Sales representatives cannot modify client accounts.' });
+      return;
+    }
+
     const id = req.params.id as string;
     const { name, industry, website, phone, email, address, status, accountManagerId } = req.body;
 

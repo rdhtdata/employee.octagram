@@ -286,6 +286,17 @@ export const ClientWorkspacePage: React.FC<ClientWorkspacePageProps> = ({
     }
   };
 
+  if (user?.role === 'SALES') {
+    return (
+      <EmptyState
+        title="Access Restricted"
+        description="Sales representatives have access to the client directory dashboard, but detailed client account workspaces and finances are restricted to Account Managers and Administrators."
+        actionLabel="Back to Client Dashboard"
+        onAction={() => onNavigate('/clients')}
+      />
+    );
+  }
+
   if (isLoading) {
     return <TableSkeleton rows={8} cols={4} />;
   }

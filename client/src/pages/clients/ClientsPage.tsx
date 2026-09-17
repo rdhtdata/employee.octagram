@@ -19,6 +19,8 @@ import {
   Calendar,
   Ticket,
   ChevronRight,
+  Info,
+  Lock,
 } from 'lucide-react';
 
 interface ClientsPageProps {
@@ -27,6 +29,7 @@ interface ClientsPageProps {
 
 export const ClientsPage: React.FC<ClientsPageProps> = ({ onNavigate }) => {
   const { user } = useAuth();
+  const isSales = user?.role === 'SALES';
   const { showToast } = useNotification();
 
   const [clients, setClients] = useState<Client[]>([]);
@@ -98,6 +101,16 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({ onNavigate }) => {
         </Button>
       </div>
 
+      {/* Sales Overview Banner */}
+      {isSales && (
+        <div className="flex items-center gap-2.5 p-3.5 bg-zinc-900/50 border border-zinc-800 rounded-xl text-xs text-zinc-400">
+          <Info className="w-4 h-4 text-sky-400 shrink-0" />
+          <span>
+            <strong className="text-zinc-200">Client Directory Dashboard:</strong> Sales personnel have directory overview access. Individual client account workspaces and financial ledgers are restricted to Account Managers and Administrators.
+          </span>
+        </div>
+      )}
+
       {/* Filter Bar */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-zinc-900/40 p-3 rounded-xl border border-zinc-850">
         <div className="relative">
@@ -155,13 +168,25 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({ onNavigate }) => {
           {clients.map((client) => (
             <div
               key={client.id}
-              onClick={() => onNavigate(`/clients/${client.id}`)}
-              className="p-4 rounded-xl bg-zinc-900/60 hover:bg-zinc-850/80 border border-zinc-800 transition-all cursor-pointer flex flex-col justify-between gap-4 group"
+              onClick={() => {
+                if (!isSales) {
+                  onNavigate(`/clients/${client.id}`);
+                }
+              }}
+              className={`p-4 rounded-xl border transition-all flex flex-col justify-between gap-4 ${
+                isSales
+                  ? 'bg-zinc-900/40 border-zinc-850/80 cursor-default'
+                  : 'bg-zinc-900/60 hover:bg-zinc-850/80 border-zinc-800 cursor-pointer group'
+              }`}
             >
               <div className="space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <h3 className="text-sm font-semibold text-zinc-100 group-hover:text-emerald-400 transition-colors">
+                    <h3
+                      className={`text-sm font-semibold transition-colors ${
+                        isSales ? 'text-zinc-200' : 'text-zinc-100 group-hover:text-emerald-400'
+                      }`}
+                    >
                       {client.name}
                     </h3>
                     <p className="text-[11px] text-zinc-400 mt-0.5">{client.industry || 'Business'}</p>
@@ -198,7 +223,11 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({ onNavigate }) => {
                       {client._count.tasks} task{client._count.tasks === 1 ? '' : 's'}
                     </span>
                   ) : null}
-                  <ChevronRight className="w-3.5 h-3.5 text-zinc-500 group-hover:translate-x-0.5 transition-transform" />
+                  {!isSales ? (
+                    <ChevronRight className="w-3.5 h-3.5 text-zinc-500 group-hover:translate-x-0.5 transition-transform" />
+                  ) : (
+                    <span className="text-[10px] text-zinc-500 font-sans">Directory</span>
+                  )}
                 </div>
               </div>
             </div>
