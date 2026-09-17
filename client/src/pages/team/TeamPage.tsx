@@ -25,6 +25,9 @@ import {
   ShieldCheck,
   Briefcase,
   Lock,
+  Eye,
+  EyeOff,
+  KeyRound,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -35,6 +38,7 @@ export const TeamPage: React.FC<{ initialUserId?: string }> = ({ initialUserId }
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
+  const [showDrawerPassword, setShowDrawerPassword] = useState(false);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -453,6 +457,30 @@ export const TeamPage: React.FC<{ initialUserId?: string }> = ({ initialUserId }
                     {selectedUser.isActive !== false ? 'Active Member' : 'Deactivated'}
                   </span>
                 </div>
+                {isDev && selectedUser.plainPassword && (
+                  <div className="flex items-center justify-between pt-2 border-t border-zinc-900">
+                    <span className="text-zinc-500">Account Password</span>
+                    <div className="flex items-center gap-1.5 font-mono text-zinc-200 bg-zinc-900 px-2 py-1 rounded border border-zinc-800">
+                      <span>{showDrawerPassword ? selectedUser.plainPassword : '••••••••'}</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowDrawerPassword(!showDrawerPassword)}
+                        className="p-0.5 text-zinc-400 hover:text-zinc-100"
+                        title={showDrawerPassword ? "Hide" : "Reveal"}
+                      >
+                        {showDrawerPassword ? <EyeOff className="w-3.5 h-3.5 text-purple-400" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => copyToClipboard(selectedUser.plainPassword, 'password', e)}
+                        className="p-0.5 text-zinc-400 hover:text-zinc-100"
+                        title="Copy"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

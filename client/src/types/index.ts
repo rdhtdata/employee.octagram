@@ -8,6 +8,7 @@ export interface User {
   phone?: string | null;
   department?: string | null;
   avatarUrl?: string | null;
+  plainPassword?: string | null;
   isActive: boolean;
   createdAt: string;
   _count?: {

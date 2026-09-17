@@ -22,6 +22,10 @@ import {
   XCircle,
   Trash2,
   Terminal,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Copy,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 
@@ -41,6 +45,12 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   const [users, setUsers] = useState<User[]>([]);
   const [auditLogs, setAuditLogs] = useState<ActivityLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Password visibility & management for DEV
+  const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
+  const [passwordModalUser, setPasswordModalUser] = useState<User | null>(null);
+  const [targetNewPassword, setTargetNewPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -137,6 +147,38 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     }
   };
 
+  const handleSaveNewPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passwordModalUser || !targetNewPassword || targetNewPassword.length < 6) {
+      showToast('Password must be at least 6 characters', 'error');
+      return;
+    }
+    try {
+      setIsChangingPassword(true);
+      await api.users.update(passwordModalUser.id, { password: targetNewPassword });
+      showToast(`Password updated for ${passwordModalUser.name}`, 'success');
+      setPasswordModalUser(null);
+      setTargetNewPassword('');
+      fetchAdminData();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update password', 'error');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  const togglePasswordVisibility = (userId: string) => {
+    setRevealedPasswords((prev) => ({
+      ...prev,
+      [userId]: !prev[userId],
+    }));
+  };
+
+  const copyPasswordToClipboard = (passwordText: string, userName: string) => {
+    navigator.clipboard.writeText(passwordText);
+    showToast(`Copied password for ${userName} to clipboard`, 'success');
+  };
+
   const handleExport = async (entity: string) => {
     try {
       showToast(`Generating ${entity} export...`, 'info');
@@ -209,6 +251,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                   <th className="px-4 py-3">User</th>
                   <th className="px-4 py-3">Department</th>
                   <th className="px-4 py-3">Assigned Role</th>
+                  {isDev && <th className="px-4 py-3">Password / Credentials</th>}
                   <th className="px-4 py-3">Account Status</th>
                   <th className="px-4 py-3">Actions</th>
                 </tr>
@@ -241,6 +284,37 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                         <option value="SALES">SALES</option>
                       </select>
                     </td>
+                    {isDev && (
+                      <td className="px-4 py-3 font-mono">
+                        <div className="flex items-center gap-2 bg-zinc-950/60 px-2.5 py-1 rounded-lg border border-zinc-800 w-fit">
+                          <span className="text-xs text-zinc-200">
+                            {revealedPasswords[u.id] ? (u.plainPassword || '••••••••') : '••••••••'}
+                          </span>
+                          <button
+                            type="button"
+                            title={revealedPasswords[u.id] ? "Hide Password" : "Show Password"}
+                            onClick={() => togglePasswordVisibility(u.id)}
+                            className="p-0.5 hover:text-zinc-100 text-zinc-400 cursor-pointer"
+                          >
+                            {revealedPasswords[u.id] ? (
+                              <EyeOff className="w-3.5 h-3.5 text-purple-400" />
+                            ) : (
+                              <Eye className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                          {u.plainPassword && (
+                            <button
+                              type="button"
+                              title="Copy Password"
+                              onClick={() => copyPasswordToClipboard(u.plainPassword!, u.name)}
+                              className="p-0.5 hover:text-zinc-100 text-zinc-400 cursor-pointer"
+                            >
+                              <Copy className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
                     <td className="px-4 py-3">
                       {u.isActive ? (
                         <span className="text-[11px] text-emerald-400 font-medium flex items-center gap-1">
@@ -261,6 +335,19 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                         >
                           {u.isActive ? 'Deactivate' : 'Activate'}
                         </Button>
+                        {isDev && (
+                          <Button
+                            variant="secondary"
+                            size="xs"
+                            icon={<KeyRound className="w-3 h-3" />}
+                            onClick={() => {
+                              setPasswordModalUser(u);
+                              setTargetNewPassword('');
+                            }}
+                          >
+                            Password
+                          </Button>
+                        )}
                         {isDev && currentUser?.id !== u.id && (
                           <Button
                             variant="danger"
@@ -516,6 +603,46 @@ export const AdminPage: React.FC<AdminPageProps> = ({
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Change Password Modal (DEV Only) */}
+      <Modal
+        isOpen={!!passwordModalUser}
+        onClose={() => setPasswordModalUser(null)}
+        title={`Set New Password for ${passwordModalUser?.name}`}
+        maxWidth="sm"
+      >
+        <form onSubmit={handleSaveNewPassword} className="space-y-4 text-xs">
+          <div className="p-3 bg-purple-950/30 border border-purple-800/50 rounded-xl space-y-1">
+            <p className="font-medium text-purple-200">Developer Password Override</p>
+            <p className="text-[11px] text-purple-300/80">
+              Target user: <strong className="text-purple-100">{passwordModalUser?.email}</strong>
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-zinc-300 font-medium mb-1">New Password * (Min 6 chars)</label>
+            <input
+              type="text"
+              required
+              minLength={6}
+              autoFocus
+              placeholder="Enter new password"
+              value={targetNewPassword}
+              onChange={(e) => setTargetNewPassword(e.target.value)}
+              className="w-full px-3 py-2 bg-zinc-850 border border-zinc-750 rounded-lg text-zinc-100 font-mono text-xs focus:outline-none focus:border-zinc-500"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-zinc-800">
+            <Button variant="ghost" size="sm" type="button" onClick={() => setPasswordModalUser(null)} disabled={isChangingPassword}>
+              Cancel
+            </Button>
+            <Button variant="primary" size="sm" type="submit" isLoading={isChangingPassword} icon={<KeyRound className="w-3.5 h-3.5" />}>
+              Save New Password
+            </Button>
+          </div>
+        </form>
       </Modal>
     </div>
   );

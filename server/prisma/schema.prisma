@@ -8,11 +8,12 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String
-  name         String
-  role         String   @default("SALES") // ADMIN | SALES
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String
+  plainPassword String?
+  name          String
+  role          String   @default("SALES") // DEV | ADMIN | SALES
   phone        String?
   department   String?
   avatarUrl    String?

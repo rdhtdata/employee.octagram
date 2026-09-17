@@ -10,6 +10,7 @@ const router = Router();
 // GET /api/users - List team members
 router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
+    const isDev = req.user!.role === 'DEV';
     const users = await prisma.user.findMany({
       select: {
         id: true,
@@ -21,6 +22,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response): P
         avatarUrl: true,
         isActive: true,
         createdAt: true,
+        plainPassword: isDev,
         _count: {
           select: {
             assignedTasks: { where: { status: { notIn: ['COMPLETED', 'CANCELLED'] } } },
@@ -42,6 +44,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response): P
 router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const id = req.params.id as string;
+    const isDev = req.user!.role === 'DEV';
     const user = await prisma.user.findUnique({
       where: { id },
       select: {
@@ -54,6 +57,7 @@ router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response)
         avatarUrl: true,
         isActive: true,
         createdAt: true,
+        plainPassword: isDev,
         assignedTasks: {
           where: { status: { notIn: ['COMPLETED', 'CANCELLED'] } },
           orderBy: { deadline: 'asc' },
@@ -113,6 +117,7 @@ router.post('/', requireAuth, requireRole(['ADMIN', 'DEV']), async (req: Authent
       data: {
         email: normalizedEmail,
         passwordHash,
+        plainPassword: String(password),
         name: name.trim(),
         role: assignedRole,
         phone: phone?.trim() || null,
@@ -136,6 +141,7 @@ router.post('/', requireAuth, requireRole(['ADMIN', 'DEV']), async (req: Authent
         email: newUser.email,
         role: newUser.role,
         department: newUser.department,
+        plainPassword: req.user!.role === 'DEV' ? newUser.plainPassword : undefined,
       }
     });
   } catch (error) {
@@ -143,7 +149,7 @@ router.post('/', requireAuth, requireRole(['ADMIN', 'DEV']), async (req: Authent
   }
 });
 
-// PATCH /api/users/:id - Update user details / role / active state
+// PATCH /api/users/:id - Update user details / role / active state / password
 router.patch('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const id = req.params.id as string;
@@ -196,6 +202,7 @@ router.patch('/:id', requireAuth, async (req: AuthenticatedRequest, res: Respons
     if (password && password.length >= 6) {
       const salt = await bcrypt.genSalt(10);
       dataToUpdate.passwordHash = await bcrypt.hash(password, salt);
+      dataToUpdate.plainPassword = String(password);
     }
 
     const updated = await prisma.user.update({
@@ -210,6 +217,7 @@ router.patch('/:id', requireAuth, async (req: AuthenticatedRequest, res: Respons
         department: true,
         avatarUrl: true,
         isActive: true,
+        plainPassword: isDev,
       }
     });
 
@@ -218,7 +226,7 @@ router.patch('/:id', requireAuth, async (req: AuthenticatedRequest, res: Respons
       action: 'UPDATE',
       entityType: 'USER',
       entityId: updated.id,
-      details: dataToUpdate
+      details: { ...dataToUpdate, passwordHash: undefined }
     });
 
     res.json({ user: updated });

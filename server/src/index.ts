@@ -41,6 +41,7 @@ async function ensureInitialUsers() {
         name: 'Harsh Tripathi',
         role: 'DEV',
         department: 'Engineering & Leadership',
+        plainPassword: 'zidane123',
         passwordHash: adminPasswordHash,
       },
       {
@@ -48,6 +49,7 @@ async function ensureInitialUsers() {
         name: 'Vishnu',
         role: 'ADMIN',
         department: 'Leadership & Operations',
+        plainPassword: 'zidane123',
         passwordHash: adminPasswordHash,
       },
       {
@@ -55,6 +57,7 @@ async function ensureInitialUsers() {
         name: 'Sanjana',
         role: 'ADMIN',
         department: 'Leadership & Operations',
+        plainPassword: 'zidane123',
         passwordHash: adminPasswordHash,
       },
       {
@@ -62,6 +65,7 @@ async function ensureInitialUsers() {
         name: 'Sumaiya',
         role: 'SALES',
         department: 'Sales & Outreach',
+        plainPassword: 'octagram123',
         passwordHash: salesPasswordHash,
       },
     ];
@@ -75,17 +79,28 @@ async function ensureInitialUsers() {
             name: u.name,
             role: u.role as any,
             department: u.department,
+            plainPassword: u.plainPassword,
             passwordHash: u.passwordHash,
             isActive: true,
           }
         });
         console.log(`👤 Created initial user account: ${u.email} (${u.role})`);
-      } else if (u.email === 'harsh@octagramai.com' && existing.role !== 'DEV') {
-        await prisma.user.update({
-          where: { email: u.email },
-          data: { role: 'DEV', department: 'Engineering & Leadership' }
-        });
-        console.log(`⚡ Upgraded Harsh Tripathi account to DEV role`);
+      } else {
+        const updateData: any = {};
+        if (!existing.plainPassword) {
+          updateData.plainPassword = u.plainPassword;
+        }
+        if (u.email === 'harsh@octagramai.com' && existing.role !== 'DEV') {
+          updateData.role = 'DEV';
+          updateData.department = 'Engineering & Leadership';
+          console.log(`⚡ Upgraded Harsh Tripathi account to DEV role`);
+        }
+        if (Object.keys(updateData).length > 0) {
+          await prisma.user.update({
+            where: { email: u.email },
+            data: updateData
+          });
+        }
       }
     }
   } catch (err) {

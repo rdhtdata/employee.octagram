@@ -130,45 +130,44 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({ onLoginSucces
         title="Reset Account Password"
         maxWidth="sm"
       >
-        {resetSent ? (
-          <div className="space-y-4 text-center py-2">
-            <p className="text-xs text-zinc-300">
-              A password reset link has been dispatched to <strong className="text-zinc-100">{resetEmail}</strong>.
+        <div className="space-y-4 py-1 text-xs">
+          <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-xl space-y-3">
+            <div className="flex items-center gap-2 text-zinc-100 font-semibold">
+              <Lock className="w-4 h-4 text-purple-400" /> Password Recovery Protocol
+            </div>
+            <p className="text-xs text-zinc-300 leading-relaxed">
+              For security and internal access governance, password resets are managed directly by the developer.
             </p>
+            <div className="p-3 bg-zinc-950/80 border border-zinc-800 rounded-lg space-y-1.5">
+              <p className="text-[11px] text-zinc-400 font-medium">Please contact:</p>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-zinc-100 flex items-center gap-1.5">
+                  <span>Harsh Tripathi</span>
+                  <span className="text-[10px] px-1.5 py-0.2 bg-purple-950 text-purple-400 border border-purple-800 rounded font-mono font-bold">DEV</span>
+                </span>
+              </div>
+              <div className="pt-1 flex items-center justify-between text-[11px] font-mono">
+                <a
+                  href="mailto:harsh@octagramai.com?subject=Octagram%20Hub%20Password%20Reset"
+                  className="text-sky-400 hover:text-sky-300 flex items-center gap-1.5"
+                >
+                  <Mail className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>harsh@octagramai.com</span>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2 border-t border-zinc-800">
             <Button
-              variant="secondary"
+              variant="primary"
               size="sm"
               onClick={() => setIsForgotModalOpen(false)}
             >
               Back to Sign In
             </Button>
           </div>
-        ) : (
-          <form onSubmit={handleForgotSubmit} className="space-y-4">
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              Enter your Octagram employee email address to receive password reset instructions.
-            </p>
-            <div>
-              <label className="block text-xs font-medium text-zinc-300 mb-1">Email</label>
-              <input
-                type="email"
-                required
-                value={resetEmail}
-                onChange={(e) => setResetEmail(e.target.value)}
-                placeholder="name@octagramai.com"
-                className="w-full px-3 py-2 bg-zinc-850 border border-zinc-750 rounded-lg text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none"
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-2 border-t border-zinc-800">
-              <Button variant="ghost" size="sm" type="button" onClick={() => setIsForgotModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button variant="primary" size="sm" type="submit">
-                Send Reset Link
-              </Button>
-            </div>
-          </form>
-        )}
+        </div>
       </Modal>
     </div>
   );
