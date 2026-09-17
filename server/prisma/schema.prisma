@@ -1,0 +1,363 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         String   @default("SALES") // ADMIN | SALES
+  phone        String?
+  department   String?
+  avatarUrl    String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  managedClients      Client[]             @relation("AccountManager")
+  assignedTasks       Task[]               @relation("TaskAssignee")
+  createdTasks        Task[]               @relation("TaskCreator")
+  taskCollaborations  TaskCollaborator[]
+  taskComments        TaskComment[]
+  assignedLeads       Lead[]               @relation("LeadAssignee")
+  createdMeetings     Meeting[]            @relation("MeetingCreator")
+  meetingAttended     MeetingParticipant[]
+  responsiblePayments Payment[]            @relation("ResponsiblePayment")
+  createdPayments     Payment[]            @relation("PaymentCreator")
+  responsibleExpenses Expense[]            @relation("ResponsibleExpense")
+  createdExpenses     Expense[]            @relation("ExpenseCreator")
+  assignedTickets     Ticket[]             @relation("TicketAssignee")
+  createdTickets      Ticket[]             @relation("TicketCreator")
+  ticketComments      TicketComment[]
+  communications      Communication[]
+  clientNotes         ClientNote[]
+  notifications       Notification[]
+  activityLogs        ActivityLog[]
+  documentsUploaded   Document[]
+}
+
+model Client {
+  id               String   @id @default(uuid())
+  name             String
+  industry         String?
+  website          String?
+  phone            String?
+  email            String?
+  address          String?
+  status           String   @default("ACTIVE") // ACTIVE | INACTIVE | PENDING
+  accountManagerId String?
+  convertedLeadId  String?  @unique
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  accountManager  User?           @relation("AccountManager", fields: [accountManagerId], references: [id])
+  convertedLead   Lead?           @relation("ConvertedLeadClient", fields: [convertedLeadId], references: [id])
+  contacts        ClientContact[]
+  notes           ClientNote[]
+  tasks           Task[]
+  meetings        Meeting[]
+  payments        Payment[]
+  expenses        Expense[]
+  tickets         Ticket[]
+  communications  Communication[]
+  documents       Document[]
+}
+
+model ClientContact {
+  id        String   @id @default(uuid())
+  clientId  String
+  name      String
+  title     String?
+  email     String?
+  phone     String?
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model ClientNote {
+  id        String   @id @default(uuid())
+  clientId  String
+  authorId  String
+  content   String
+  isPinned  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id])
+}
+
+model Lead {
+  id               String    @id @default(uuid())
+  businessName     String
+  category         String?
+  industry         String?
+  contactName      String?
+  phone            String?
+  email            String?
+  websiteStatus    String?   // Has Website | No Website | Needs Revision
+  websiteUrl       String?
+  rating           Float?
+  totalReviews     Int?
+  address          String?
+  googleMapsUrl    String?
+  leadScore        Int?      @default(50)
+  crmStatus        String    @default("NEW") // NEW | CONTACTED | ENGAGED | QUALIFIED | PROPOSAL | NEGOTIATION | WON | LOST
+  assignedUserId   String?
+  convertedClientId String?  @unique
+  nextFollowUpDate DateTime?
+  followUpType     String?   // Call | Email | Meeting | WhatsApp
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Relations
+  assignedUser    User?           @relation("LeadAssignee", fields: [assignedUserId], references: [id])
+  convertedClient Client?         @relation("ConvertedLeadClient")
+  tasks           Task[]
+  meetings        Meeting[]
+  communications  Communication[]
+  documents       Document[]
+}
+
+model Task {
+  id               String    @id @default(uuid())
+  title            String
+  description      String?
+  createdById      String
+  assignedUserId   String?
+  relatedClientId  String?
+  relatedLeadId    String?
+  relatedMeetingId String?
+  relatedTicketId  String?
+  priority         String    @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
+  status           String    @default("TODO") // TODO | IN_PROGRESS | BLOCKED | COMPLETED | CANCELLED
+  deadline         DateTime?
+  recurrence       String    @default("NONE") // NONE | DAILY | WEEKLY | MONTHLY | YEARLY
+  isPersonal       Boolean   @default(false)
+  automatedType    String?   // PAYMENT_REMINDER | FOLLOWUP_REMINDER | MEETING_ACTION
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Relations
+  creator         User               @relation("TaskCreator", fields: [createdById], references: [id])
+  assignee        User?              @relation("TaskAssignee", fields: [assignedUserId], references: [id])
+  client          Client?            @relation(fields: [relatedClientId], references: [id], onDelete: SetNull)
+  lead            Lead?              @relation(fields: [relatedLeadId], references: [id], onDelete: SetNull)
+  meeting         Meeting?           @relation(fields: [relatedMeetingId], references: [id], onDelete: SetNull)
+  ticket          Ticket?            @relation(fields: [relatedTicketId], references: [id], onDelete: SetNull)
+  collaborators   TaskCollaborator[]
+  comments        TaskComment[]
+  documents       Document[]
+}
+
+model TaskCollaborator {
+  taskId String
+  userId String
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, userId])
+}
+
+model TaskComment {
+  id        String   @id @default(uuid())
+  taskId    String
+  authorId  String
+  content   String
+  createdAt DateTime @default(now())
+
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id])
+}
+
+model Meeting {
+  id               String    @id @default(uuid())
+  title            String
+  date             DateTime
+  startTime        String    // e.g. "14:00"
+  endTime          String    // e.g. "15:00"
+  relatedClientId  String?
+  relatedLeadId    String?
+  locationOrLink   String?
+  agenda           String?
+  summary          String?
+  decisions        String?
+  createdById      String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Relations
+  creator      User                 @relation("MeetingCreator", fields: [createdById], references: [id])
+  client       Client?              @relation(fields: [relatedClientId], references: [id], onDelete: SetNull)
+  lead         Lead?                @relation(fields: [relatedLeadId], references: [id], onDelete: SetNull)
+  participants MeetingParticipant[]
+  tasks        Task[]
+}
+
+model MeetingParticipant {
+  id            String  @id @default(uuid())
+  meetingId     String
+  userId        String?
+  externalEmail String?
+  externalName  String?
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model Payment {
+  id                String    @id @default(uuid())
+  clientId          String
+  amount            Float
+  currency          String    @default("INR") // INR | USD
+  invoiceRef        String?
+  dueDate           DateTime
+  paymentDate       DateTime?
+  status            String    @default("UPCOMING") // UPCOMING | DUE | PAID | PARTIALLY_PAID | OVERDUE | CANCELLED
+  recurrence        String    @default("NONE") // NONE | MONTHLY | QUARTERLY | YEARLY
+  responsibleUserId String?
+  notes             String?
+  paymentMethod     String?
+  createdById       String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  client            Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  responsibleUser   User?  @relation("ResponsiblePayment", fields: [responsibleUserId], references: [id])
+  creator           User   @relation("PaymentCreator", fields: [createdById], references: [id])
+}
+
+model Expense {
+  id                String    @id @default(uuid())
+  vendor            String
+  category          String    @default("SOFTWARE") // HOSTING | DOMAINS | SOFTWARE | CONTRACTORS | ADVERTISING | OFFICE | OTHER
+  amount            Float
+  currency          String    @default("INR")
+  dueDate           DateTime
+  paidDate          DateTime?
+  status            String    @default("UPCOMING") // UPCOMING | PAID | OVERDUE | CANCELLED
+  recurrence        String    @default("NONE") // NONE | WEEKLY | MONTHLY | QUARTERLY | YEARLY
+  relatedClientId   String?
+  notes             String?
+  responsibleUserId String?
+  createdById       String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  client          Client? @relation(fields: [relatedClientId], references: [id], onDelete: SetNull)
+  responsibleUser User?   @relation("ResponsibleExpense", fields: [responsibleUserId], references: [id])
+  creator         User    @relation("ExpenseCreator", fields: [createdById], references: [id])
+}
+
+model Ticket {
+  id              String    @id @default(uuid())
+  ticketNumber    Int       @unique
+  title           String
+  description     String
+  category        String    @default("CLIENT") // CLIENT | INTERNAL | TECHNICAL | SALES | ADMIN
+  priority        String    @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
+  status          String    @default("OPEN") // OPEN | IN_PROGRESS | WAITING | RESOLVED | CLOSED
+  relatedClientId String?
+  createdById     String
+  assignedUserId  String?
+  deadline        DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  client    Client?         @relation(fields: [relatedClientId], references: [id], onDelete: SetNull)
+  creator   User            @relation("TicketCreator", fields: [createdById], references: [id])
+  assignee  User?           @relation("TicketAssignee", fields: [assignedUserId], references: [id])
+  comments  TicketComment[]
+  tasks     Task[]
+  documents Document[]
+}
+
+model TicketComment {
+  id        String   @id @default(uuid())
+  ticketId  String
+  authorId  String
+  content   String
+  createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id])
+}
+
+model Communication {
+  id              String   @id @default(uuid())
+  type            String   // CALL | EMAIL | MEETING | WHATSAPP | NOTE
+  subject         String?
+  content         String
+  direction       String   @default("OUTBOUND") // INBOUND | OUTBOUND
+  relatedClientId String?
+  relatedLeadId   String?
+  authorId        String
+  occurredAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  // Relations
+  client Client? @relation(fields: [relatedClientId], references: [id], onDelete: Cascade)
+  lead   Lead?   @relation(fields: [relatedLeadId], references: [id], onDelete: Cascade)
+  author User    @relation(fields: [authorId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String   // TASK_ASSIGNED | MEETING_REMINDER | PAYMENT_DUE | TICKET_UPDATE | MENTION | LEAD_FOLLOWUP
+  title     String
+  message   String
+  linkUrl   String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ActivityLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String   // CREATE | UPDATE | DELETE | STATUS_CHANGE | ASSIGN | CONVERT | IMPORT
+  entityType String   // CLIENT | LEAD | TASK | PAYMENT | EXPENSE | TICKET | MEETING | USER
+  entityId   String?
+  details    String   // JSON string of change details or readable summary
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model Document {
+  id              String   @id @default(uuid())
+  title           String
+  fileName        String
+  fileUrl         String
+  fileType        String
+  fileSize        Int
+  relatedClientId String?
+  relatedLeadId   String?
+  relatedTaskId   String?
+  relatedTicketId String?
+  uploadedById    String
+  createdAt       DateTime @default(now())
+
+  client       Client? @relation(fields: [relatedClientId], references: [id], onDelete: Cascade)
+  lead         Lead?   @relation(fields: [relatedLeadId], references: [id], onDelete: Cascade)
+  task         Task?   @relation(fields: [relatedTaskId], references: [id], onDelete: Cascade)
+  ticket       Ticket? @relation(fields: [relatedTicketId], references: [id], onDelete: Cascade)
+  uploadedBy   User    @relation(fields: [uploadedById], references: [id])
+}
