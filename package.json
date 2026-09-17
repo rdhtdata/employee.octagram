@@ -4,7 +4,7 @@
   "private": true,
   "description": "Octagram Internal Operations Hub",
   "scripts": {
-    "install:all": "npm install --prefix server && npm install --prefix client",
+    "install:all": "npm install --include=dev --prefix server && npm install --include=dev --prefix client",
     "postinstall": "npm run install:all",
     "build": "npm run build --prefix server && npm run build --prefix client",
     "start": "node server/dist/index.js",
@@ -13,7 +13,7 @@
     "dev:client": "npm run dev --prefix client",
     "seed": "npm run seed --prefix server"
   },
-  "devDependencies": {
+  "dependencies": {
     "concurrently": "^9.1.0"
   }
 }
