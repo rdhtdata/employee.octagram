@@ -29,14 +29,14 @@ export const requireRole = (allowedRoles: UserRole | UserRole[]) => {
       return;
     }
 
-    if (!roles.includes(req.user.role)) {
-      res.status(403).json({
-        error: 'Access restricted. You do not have administrative permissions to view or modify this resource.',
-        code: 'FORBIDDEN_ROLE'
-      });
-      return;
+    // DEV users have universal bypass for all role checks
+    if (req.user.role === 'DEV' || roles.includes(req.user.role)) {
+      return next();
     }
 
-    next();
+    res.status(403).json({
+      error: 'Access restricted. You do not have administrative permissions to view or modify this resource.',
+      code: 'FORBIDDEN_ROLE'
+    });
   };
 };

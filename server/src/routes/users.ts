@@ -83,8 +83,8 @@ router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response)
   }
 });
 
-// POST /api/users - Admin: Create new user
-router.post('/', requireAuth, requireRole('ADMIN'), async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+// POST /api/users - Admin/Dev: Create new user
+router.post('/', requireAuth, requireRole(['ADMIN', 'DEV']), async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { email, password, name, role, phone, department } = req.body;
     if (!email || !password || !name) {
@@ -102,12 +102,19 @@ router.post('/', requireAuth, requireRole('ADMIN'), async (req: AuthenticatedReq
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
+    let assignedRole: 'DEV' | 'ADMIN' | 'SALES' = 'SALES';
+    if (role === 'DEV' && req.user!.role === 'DEV') {
+      assignedRole = 'DEV';
+    } else if (role === 'ADMIN' || role === 'DEV') {
+      assignedRole = 'ADMIN';
+    }
+
     const newUser = await prisma.user.create({
       data: {
         email: normalizedEmail,
         passwordHash,
         name: name.trim(),
-        role: role === 'ADMIN' ? 'ADMIN' : 'SALES',
+        role: assignedRole,
         phone: phone?.trim() || null,
         department: department?.trim() || null,
         isActive: true,
@@ -141,7 +148,8 @@ router.patch('/:id', requireAuth, async (req: AuthenticatedRequest, res: Respons
   try {
     const id = req.params.id as string;
     const isSelf = req.user!.userId === id;
-    const isAdmin = req.user!.role === 'ADMIN';
+    const isDev = req.user!.role === 'DEV';
+    const isAdmin = req.user!.role === 'ADMIN' || isDev;
 
     if (!isSelf && !isAdmin) {
       res.status(403).json({ error: 'Forbidden. You can only update your own profile.' });
@@ -171,9 +179,17 @@ router.patch('/:id', requireAuth, async (req: AuthenticatedRequest, res: Respons
     if (department !== undefined) dataToUpdate.department = department ? department.trim() : null;
     if (avatarUrl !== undefined) dataToUpdate.avatarUrl = avatarUrl;
 
-    // Only Admin can change roles and active status
+    // Only Admin/Dev can change roles and active status
     if (isAdmin) {
-      if (role !== undefined) dataToUpdate.role = role === 'ADMIN' ? 'ADMIN' : 'SALES';
+      if (role !== undefined) {
+        if (role === 'DEV' && isDev) {
+          dataToUpdate.role = 'DEV';
+        } else if (role === 'ADMIN') {
+          dataToUpdate.role = 'ADMIN';
+        } else {
+          dataToUpdate.role = 'SALES';
+        }
+      }
       if (isActive !== undefined) dataToUpdate.isActive = Boolean(isActive);
     }
 
@@ -208,6 +224,52 @@ router.patch('/:id', requireAuth, async (req: AuthenticatedRequest, res: Respons
     res.json({ user: updated });
   } catch (error) {
     res.status(500).json({ error: 'Failed to update user profile.' });
+  }
+});
+
+// DELETE /api/users/:id - Delete user (DEV only)
+router.delete('/:id', requireAuth, requireRole('DEV'), async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+
+    if (req.user!.userId === id) {
+      res.status(400).json({ error: 'You cannot delete your own active account.' });
+      return;
+    }
+
+    const targetUser = await prisma.user.findUnique({ where: { id } });
+    if (!targetUser) {
+      res.status(404).json({ error: 'User account not found.' });
+      return;
+    }
+
+    // Safely uncouple references before deleting
+    await prisma.$transaction([
+      prisma.client.updateMany({ where: { accountManagerId: id }, data: { accountManagerId: null } }),
+      prisma.lead.updateMany({ where: { assignedUserId: id }, data: { assignedUserId: null } }),
+      prisma.task.updateMany({ where: { assignedUserId: id }, data: { assignedUserId: null } }),
+      prisma.ticket.updateMany({ where: { assignedUserId: id }, data: { assignedUserId: null } }),
+      prisma.payment.updateMany({ where: { responsibleUserId: id }, data: { responsibleUserId: null } }),
+      prisma.expense.updateMany({ where: { responsibleUserId: id }, data: { responsibleUserId: null } }),
+      prisma.taskCollaborator.deleteMany({ where: { userId: id } }),
+      prisma.ticketCollaborator.deleteMany({ where: { userId: id } }),
+      prisma.meetingParticipant.deleteMany({ where: { userId: id } }),
+      prisma.notification.deleteMany({ where: { userId: id } }),
+      prisma.user.delete({ where: { id } }),
+    ]);
+
+    await logActivity({
+      userId: req.user!.userId,
+      action: 'DELETE',
+      entityType: 'USER',
+      entityId: id,
+      details: { deletedEmail: targetUser.email, deletedName: targetUser.name, deletedRole: targetUser.role }
+    });
+
+    res.json({ success: true, message: `Account ${targetUser.name} (${targetUser.email}) was successfully deleted.` });
+  } catch (error: any) {
+    console.error('Failed to delete user:', error);
+    res.status(500).json({ error: error?.message || 'Failed to delete user.' });
   }
 });
 

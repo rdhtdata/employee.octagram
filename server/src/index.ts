@@ -39,8 +39,8 @@ async function ensureInitialUsers() {
       {
         email: 'harsh@octagramai.com',
         name: 'Harsh Tripathi',
-        role: 'ADMIN',
-        department: 'Leadership & Operations',
+        role: 'DEV',
+        department: 'Engineering & Leadership',
         passwordHash: adminPasswordHash,
       },
       {
@@ -79,7 +79,13 @@ async function ensureInitialUsers() {
             isActive: true,
           }
         });
-        console.log(`👤 Created initial user account: ${u.email}`);
+        console.log(`👤 Created initial user account: ${u.email} (${u.role})`);
+      } else if (u.email === 'harsh@octagramai.com' && existing.role !== 'DEV') {
+        await prisma.user.update({
+          where: { email: u.email },
+          data: { role: 'DEV', department: 'Engineering & Leadership' }
+        });
+        console.log(`⚡ Upgraded Harsh Tripathi account to DEV role`);
       }
     }
   } catch (err) {

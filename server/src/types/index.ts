@@ -1,6 +1,6 @@
 import { Request } from 'express';
 
-export type UserRole = 'ADMIN' | 'SALES';
+export type UserRole = 'DEV' | 'ADMIN' | 'SALES';
 
 export interface TokenPayload {
   userId: string;

@@ -104,6 +104,7 @@ export const api = {
     get: (id: string) => apiFetch<{ user: any }>(`/users/${id}`),
     create: (data: any) => apiFetch('/users', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: any) => apiFetch(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    delete: (id: string) => apiFetch(`/users/${id}`, { method: 'DELETE' }),
   },
 
   // Tasks

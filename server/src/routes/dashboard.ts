@@ -10,7 +10,7 @@ const router = Router();
 router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const currentUserId = req.user!.userId;
-    const isAdmin = req.user!.role === 'ADMIN';
+    const isAdmin = req.user!.role === 'ADMIN' || req.user!.role === 'DEV';
     const isSales = req.user!.role === 'SALES';
 
     // Trigger background sync for payments and follow-ups

@@ -29,7 +29,7 @@ import {
 import { format } from 'date-fns';
 
 export const TeamPage: React.FC<{ initialUserId?: string }> = ({ initialUserId }) => {
-  const { user: currentUser, isAdmin, updateUser } = useAuth();
+  const { user: currentUser, isAdmin, isDev, updateUser } = useAuth();
   const { showToast } = useNotification();
 
   const [users, setUsers] = useState<User[]>([]);
@@ -38,7 +38,7 @@ export const TeamPage: React.FC<{ initialUserId?: string }> = ({ initialUserId }
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [roleFilter, setRoleFilter] = useState<'ALL' | 'ADMIN' | 'SALES'>('ALL');
+  const [roleFilter, setRoleFilter] = useState<'ALL' | 'DEV' | 'ADMIN' | 'SALES'>('ALL');
 
   // Modals
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -248,17 +248,17 @@ export const TeamPage: React.FC<{ initialUserId?: string }> = ({ initialUserId }
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <span className="text-zinc-500 text-[11px] shrink-0">Role:</span>
           <div className="flex items-center bg-zinc-850 p-0.5 rounded-lg border border-zinc-750">
-            {(['ALL', 'ADMIN', 'SALES'] as const).map((role) => (
+            {(['ALL', 'DEV', 'ADMIN', 'SALES'] as const).map((role) => (
               <button
                 key={role}
                 onClick={() => setRoleFilter(role)}
-                className={`px-3 py-1 rounded text-xs transition-colors cursor-pointer ${
+                className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
                   roleFilter === role
                     ? 'bg-zinc-700 text-zinc-100 font-semibold'
                     : 'text-zinc-400 hover:text-zinc-200'
                 }`}
               >
-                {role === 'ALL' ? 'All Roles' : role}
+                {role === 'ALL' ? 'All' : role}
               </button>
             ))}
           </div>
@@ -312,7 +312,11 @@ export const TeamPage: React.FC<{ initialUserId?: string }> = ({ initialUserId }
                   </div>
 
                   <div className="flex items-center gap-1.5">
-                    <Badge variant={u.role === 'ADMIN' ? 'zinc' : 'neutral'} size="xs">
+                    <Badge
+                      variant={u.role === 'DEV' ? 'purple' : u.role === 'ADMIN' ? 'zinc' : 'neutral'}
+                      size="xs"
+                      dot={u.role === 'DEV'}
+                    >
                       {u.role}
                     </Badge>
                     {canEditThisUser && (
@@ -570,9 +574,11 @@ export const TeamPage: React.FC<{ initialUserId?: string }> = ({ initialUserId }
                 <label className="block text-zinc-300 font-medium mb-1">Role / Permissions</label>
                 <select
                   value={editFormData.role}
+                  disabled={!isDev && editFormData.role === 'DEV'}
                   onChange={(e) => setEditFormData({ ...editFormData, role: e.target.value })}
-                  className="w-full px-3 py-2 bg-zinc-850 border border-zinc-750 rounded-lg text-zinc-100 font-medium"
+                  className="w-full px-3 py-2 bg-zinc-850 border border-zinc-750 rounded-lg text-zinc-100 font-medium disabled:opacity-50"
                 >
+                  {isDev && <option value="DEV">DEV (Superuser & Full Developer)</option>}
                   <option value="ADMIN">ADMIN (Full Access)</option>
                   <option value="SALES">SALES (Pipeline & Tasks)</option>
                 </select>
@@ -688,8 +694,9 @@ export const TeamPage: React.FC<{ initialUserId?: string }> = ({ initialUserId }
                 onChange={(e) => setAddFormData({ ...addFormData, role: e.target.value })}
                 className="w-full px-3 py-2 bg-zinc-850 border border-zinc-750 rounded-lg text-zinc-100 font-medium"
               >
-                <option value="SALES">SALES</option>
-                <option value="ADMIN">ADMIN</option>
+                {isDev && <option value="DEV">DEV (Superuser & Developer)</option>}
+                <option value="ADMIN">ADMIN (Full Operations)</option>
+                <option value="SALES">SALES (CRM & Pipeline)</option>
               </select>
             </div>
             <div>

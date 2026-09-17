@@ -24,7 +24,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response): P
       return;
     }
 
-    const isAdmin = req.user!.role === 'ADMIN';
+    const isAdmin = req.user!.role === 'ADMIN' || req.user!.role === 'DEV';
     const currentUserId = req.user!.userId;
     const results: SearchResultItem[] = [];
 

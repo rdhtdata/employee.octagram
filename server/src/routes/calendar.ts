@@ -10,7 +10,7 @@ router.get('/events', requireAuth, async (req: AuthenticatedRequest, res: Respon
   try {
     const { start, end, userId, eventType } = req.query;
     const currentUserId = req.user!.userId;
-    const isAdmin = req.user!.role === 'ADMIN';
+    const isAdmin = req.user!.role === 'ADMIN' || req.user!.role === 'DEV';
     const isSales = req.user!.role === 'SALES';
 
     const startDate = start ? new Date(start as string) : new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);

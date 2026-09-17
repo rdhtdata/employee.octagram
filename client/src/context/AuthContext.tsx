@@ -6,6 +6,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
+  isDev: boolean;
   isAdmin: boolean;
   isSales: boolean;
   login: (credentials: { email: string; password: string }) => Promise<void>;
@@ -70,7 +71,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const isAdmin = user?.role === 'ADMIN';
+  const isDev = user?.role === 'DEV';
+  const isAdmin = user?.role === 'ADMIN' || isDev;
   const isSales = user?.role === 'SALES';
 
   return (
@@ -79,6 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         token,
         isLoading,
+        isDev,
         isAdmin,
         isSales,
         login,
