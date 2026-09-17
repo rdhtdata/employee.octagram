@@ -67,6 +67,12 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response): P
       where.title = { contains: search.trim() };
     }
 
+    const isSales = req.user!.role === 'SALES';
+    if (isSales) {
+      where.relatedClientId = null;
+      where.automatedType = { not: 'PAYMENT_REMINDER' };
+    }
+
     const tasks = await prisma.task.findMany({
       where,
       include: {
@@ -121,6 +127,11 @@ router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response)
 
     if (!task) {
       res.status(404).json({ error: 'Task not found.' });
+      return;
+    }
+
+    if (req.user!.role === 'SALES' && (task.relatedClientId || task.automatedType === 'PAYMENT_REMINDER')) {
+      res.status(403).json({ error: 'Access restricted: Sales representatives cannot access client or financial tasks.' });
       return;
     }
 
@@ -237,6 +248,11 @@ router.patch('/:id', requireAuth, async (req: AuthenticatedRequest, res: Respons
       return;
     }
 
+    if (req.user!.role === 'SALES' && (existing.relatedClientId || existing.automatedType === 'PAYMENT_REMINDER')) {
+      res.status(403).json({ error: 'Access restricted: Sales representatives cannot modify client or financial tasks.' });
+      return;
+    }
+
     const updateData: any = {};
     if (title !== undefined) updateData.title = title.trim();
     if (description !== undefined) updateData.description = description ? description.trim() : null;
@@ -308,6 +324,11 @@ router.delete('/:id', requireAuth, async (req: AuthenticatedRequest, res: Respon
       return;
     }
 
+    if (req.user!.role === 'SALES' && (task.relatedClientId || task.automatedType === 'PAYMENT_REMINDER')) {
+      res.status(403).json({ error: 'Access restricted: Sales representatives cannot delete client or financial tasks.' });
+      return;
+    }
+
     await prisma.task.delete({ where: { id } });
 
     await logActivity({
@@ -328,6 +349,18 @@ router.delete('/:id', requireAuth, async (req: AuthenticatedRequest, res: Respon
 router.post('/:id/comments', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const id = req.params.id as string;
+
+    const task = await prisma.task.findUnique({ where: { id } });
+    if (!task) {
+      res.status(404).json({ error: 'Task not found.' });
+      return;
+    }
+
+    if (req.user!.role === 'SALES' && (task.relatedClientId || task.automatedType === 'PAYMENT_REMINDER')) {
+      res.status(403).json({ error: 'Access restricted: Sales representatives cannot comment on client or financial tasks.' });
+      return;
+    }
+
     const { content } = req.body;
     if (!content || !content.trim()) {
       res.status(400).json({ error: 'Comment content is required.' });

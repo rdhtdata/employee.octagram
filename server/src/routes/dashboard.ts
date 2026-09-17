@@ -11,6 +11,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response): P
   try {
     const currentUserId = req.user!.userId;
     const isAdmin = req.user!.role === 'ADMIN';
+    const isSales = req.user!.role === 'SALES';
 
     // Trigger background sync for payments and follow-ups
     try {
@@ -49,6 +50,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response): P
               { isPersonal: true, createdById: currentUserId }
             ]
           },
+          isSales ? { relatedClientId: null, automatedType: { not: 'PAYMENT_REMINDER' } } : {},
           { status: { notIn: ['COMPLETED', 'CANCELLED'] } },
           {
             OR: [
@@ -141,14 +143,20 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response): P
     }
 
     // 2. My Tasks Sections
+    const myTasksWhere: any = {
+      OR: [
+        { assignedUserId: currentUserId },
+        { collaborators: { some: { userId: currentUserId } } },
+        { isPersonal: true, createdById: currentUserId }
+      ]
+    };
+    if (isSales) {
+      myTasksWhere.relatedClientId = null;
+      myTasksWhere.automatedType = { not: 'PAYMENT_REMINDER' };
+    }
+
     const myTasks = await prisma.task.findMany({
-      where: {
-        OR: [
-          { assignedUserId: currentUserId },
-          { collaborators: { some: { userId: currentUserId } } },
-          { isPersonal: true, createdById: currentUserId }
-        ]
-      },
+      where: myTasksWhere,
       include: {
         client: { select: { id: true, name: true } },
         lead: { select: { id: true, businessName: true } },
@@ -163,11 +171,17 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response): P
     const myTasksCompleted = myTasks.filter(t => t.status === 'COMPLETED').slice(0, 10);
 
     // 3. Shared Team Tasks (tasks involving other team members)
+    const teamTasksWhere: any = {
+      isPersonal: false,
+      status: { notIn: ['COMPLETED', 'CANCELLED'] }
+    };
+    if (isSales) {
+      teamTasksWhere.relatedClientId = null;
+      teamTasksWhere.automatedType = { not: 'PAYMENT_REMINDER' };
+    }
+
     const teamTasks = await prisma.task.findMany({
-      where: {
-        isPersonal: false,
-        status: { notIn: ['COMPLETED', 'CANCELLED'] }
-      },
+      where: teamTasksWhere,
       include: {
         assignee: { select: { id: true, name: true, avatarUrl: true } },
         client: { select: { id: true, name: true } },

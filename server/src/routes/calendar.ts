@@ -11,6 +11,7 @@ router.get('/events', requireAuth, async (req: AuthenticatedRequest, res: Respon
     const { start, end, userId, eventType } = req.query;
     const currentUserId = req.user!.userId;
     const isAdmin = req.user!.role === 'ADMIN';
+    const isSales = req.user!.role === 'SALES';
 
     const startDate = start ? new Date(start as string) : new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
     const endDate = end ? new Date(end as string) : new Date(new Date().getFullYear(), new Date().getMonth() + 2, 0);
@@ -33,6 +34,9 @@ router.get('/events', requireAuth, async (req: AuthenticatedRequest, res: Respon
       const meetingsWhere: any = {
         date: { gte: startDate, lte: endDate }
       };
+      if (isSales) {
+        meetingsWhere.clientId = null;
+      }
       if (userId) {
         meetingsWhere.participants = { some: { userId: userId as string } };
       }
@@ -74,6 +78,10 @@ router.get('/events', requireAuth, async (req: AuthenticatedRequest, res: Respon
         deadline: { gte: startDate, lte: endDate },
         status: { notIn: ['COMPLETED', 'CANCELLED'] }
       };
+      if (isSales) {
+        tasksWhere.relatedClientId = null;
+        tasksWhere.automatedType = { not: 'PAYMENT_REMINDER' };
+      }
       if (userId) {
         tasksWhere.assignedUserId = userId as string;
       }
@@ -137,8 +145,8 @@ router.get('/events', requireAuth, async (req: AuthenticatedRequest, res: Respon
       });
     }
 
-    // 4. Payment Reminders / Income Due (Visible to Admins and Account Holder)
-    if (!eventType || eventType === 'ALL' || eventType === 'PAYMENT_DUE') {
+    // 4. Payment Reminders / Income Due (Visible to Admins and Account Holder, Hidden from Sales)
+    if (!isSales && (!eventType || eventType === 'ALL' || eventType === 'PAYMENT_DUE')) {
       const paymentWhere: any = {
         dueDate: { gte: startDate, lte: endDate },
         status: { notIn: ['PAID', 'CANCELLED'] }
@@ -174,8 +182,8 @@ router.get('/events', requireAuth, async (req: AuthenticatedRequest, res: Respon
       });
     }
 
-    // 5. Expense Due Reminders (Visible to Admins and Account Holder)
-    if (!eventType || eventType === 'ALL' || eventType === 'EXPENSE_DUE') {
+    // 5. Expense Due Reminders (Visible to Admins and Account Holder, Hidden from Sales)
+    if (!isSales && (!eventType || eventType === 'ALL' || eventType === 'EXPENSE_DUE')) {
       const expenseWhere: any = {
         dueDate: { gte: startDate, lte: endDate },
         status: { notIn: ['PAID', 'CANCELLED'] }
