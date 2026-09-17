@@ -20,8 +20,8 @@ export const securityHeaders = (req: Request, res: Response, next: NextFunction)
   // Isolate browsing context
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
 
-  // Restrict browser device feature access
-  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+  // Prevent all search engines and web crawlers from indexing, archiving, or caching
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate');
 
   // Content Security Policy
   res.setHeader(

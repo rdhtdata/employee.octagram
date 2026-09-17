@@ -150,6 +150,12 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Explicit robots.txt handler to prevent search engine crawler indexing
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain');
+  res.send('User-agent: *\nDisallow: /\n');
+});
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
