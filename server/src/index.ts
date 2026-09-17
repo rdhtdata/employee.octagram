@@ -27,7 +27,8 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { AutomationEngine } from './services/automation.js';
 
 const app = express();
-const PORT = process.env.PORT || 5001;
+const rawPort = process.env.PORT || 5001;
+const PORT = isNaN(Number(rawPort)) ? rawPort : Number(rawPort);
 
 async function ensureInitialUsers() {
   try {
@@ -145,8 +146,8 @@ app.get('*', (req, res, next) => {
 // Error handling middleware
 app.use(errorHandler);
 
-app.listen(Number(PORT), '0.0.0.0', async () => {
-  console.log(`⚡ Octagram Hub API Server running on port ${PORT} (0.0.0.0)`);
+app.listen(PORT, async () => {
+  console.log(`⚡ Octagram Hub API Server running on port: ${PORT}`);
   console.log(`📡 Healthcheck: http://localhost:${PORT}/api/health`);
 
   // Ensure initial authorized accounts exist
