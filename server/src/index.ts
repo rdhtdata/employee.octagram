@@ -146,7 +146,7 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     timestamp: new Date().toISOString(),
     service: 'Octagram Internal Operations Hub API',
-    version: '1.0.0'
+    version: '1.1.0'
   });
 });
 
