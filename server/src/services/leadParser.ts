@@ -408,42 +408,50 @@ export class LeadParserService {
       }
     });
 
+    // Build O(1) hash maps for fast deduplication lookup
+    const phoneMap = new Map<string, typeof existingLeads[0]>();
+    const emailMap = new Map<string, typeof existingLeads[0]>();
+    const mapsMap = new Map<string, typeof existingLeads[0]>();
+    const nameMap = new Map<string, typeof existingLeads[0]>();
+
+    for (const existing of existingLeads) {
+      const p = this.normalizePhone(existing.phone);
+      if (p && p.length >= 7 && !phoneMap.has(p)) phoneMap.set(p, existing);
+
+      const e = existing.email ? existing.email.toLowerCase().trim() : '';
+      if (e && !emailMap.has(e)) emailMap.set(e, existing);
+
+      const m = existing.googleMapsUrl ? existing.googleMapsUrl.toLowerCase().trim() : '';
+      if (m && !mapsMap.has(m)) mapsMap.set(m, existing);
+
+      const n = existing.businessName ? existing.businessName.toLowerCase().trim() : '';
+      if (n && !nameMap.has(n)) nameMap.set(n, existing);
+    }
+
     const duplicates: DuplicateMatch[] = [];
     const unique: NormalizedLead[] = [];
 
     for (const lead of leads) {
       const normPhone = this.normalizePhone(lead.phone);
       const normEmail = lead.email ? lead.email.toLowerCase().trim() : '';
-      const normName = lead.businessName.toLowerCase().trim();
+      const normName = lead.businessName ? lead.businessName.toLowerCase().trim() : '';
       const normMaps = lead.googleMapsUrl ? lead.googleMapsUrl.toLowerCase().trim() : '';
 
-      let matchedExisting: typeof existingLeads[0] | null = null;
+      let matchedExisting: typeof existingLeads[0] | undefined = undefined;
       let matchedBy: DuplicateMatch['matchedBy'] = 'businessName';
 
-      for (const existing of existingLeads) {
-        if (normPhone && this.normalizePhone(existing.phone) === normPhone && normPhone.length >= 7) {
-          matchedExisting = existing;
-          matchedBy = 'phone';
-          break;
-        }
-
-        if (normEmail && existing.email && existing.email.toLowerCase().trim() === normEmail) {
-          matchedExisting = existing;
-          matchedBy = 'email';
-          break;
-        }
-
-        if (normMaps && existing.googleMapsUrl && existing.googleMapsUrl.toLowerCase().trim() === normMaps) {
-          matchedExisting = existing;
-          matchedBy = 'googleMapsUrl';
-          break;
-        }
-
-        if (existing.businessName.toLowerCase().trim() === normName) {
-          matchedExisting = existing;
-          matchedBy = 'businessName';
-          break;
-        }
+      if (normPhone && normPhone.length >= 7 && phoneMap.has(normPhone)) {
+        matchedExisting = phoneMap.get(normPhone);
+        matchedBy = 'phone';
+      } else if (normEmail && emailMap.has(normEmail)) {
+        matchedExisting = emailMap.get(normEmail);
+        matchedBy = 'email';
+      } else if (normMaps && mapsMap.has(normMaps)) {
+        matchedExisting = mapsMap.get(normMaps);
+        matchedBy = 'googleMapsUrl';
+      } else if (normName && nameMap.has(normName)) {
+        matchedExisting = nameMap.get(normName);
+        matchedBy = 'businessName';
       }
 
       if (matchedExisting) {

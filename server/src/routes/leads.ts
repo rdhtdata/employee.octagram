@@ -7,6 +7,7 @@ import { logActivity } from '../services/auditLogger.js';
 import { LeadParserService, NormalizedLead } from '../services/leadParser.js';
 
 import path from 'path';
+import { randomUUID } from 'crypto';
 import { importLimiter } from '../middleware/security.js';
 
 const router = Router();
@@ -557,64 +558,92 @@ router.post('/import/confirm', requireAuth, importLimiter, async (req: Authentic
     let mergedCount = 0;
     let skippedCount = 0;
 
-    // 1. Insert unique leads
+    const leadsToInsert: any[] = [];
+
+    // 1. Prepare unique leads
     if (Array.isArray(uniqueLeads) && uniqueLeads.length > 0) {
       for (const lead of uniqueLeads) {
-        await prisma.lead.create({
-          data: {
-            businessName: lead.businessName,
-            category: lead.category || null,
-            industry: lead.industry || null,
-            contactName: lead.contactName || null,
-            phone: lead.phone || null,
-            email: lead.email || null,
-            websiteStatus: lead.websiteStatus || null,
-            websiteUrl: lead.websiteUrl || null,
-            rating: lead.rating !== undefined ? lead.rating : null,
-            totalReviews: lead.totalReviews !== undefined ? lead.totalReviews : null,
-            address: lead.address || null,
-            googleMapsUrl: lead.googleMapsUrl || null,
-            leadScore: lead.leadScore || 50,
-            crmStatus: lead.crmStatus || 'NEW',
-            assignedUserId: targetAssigneeId,
-            notes: lead.notes || (lead.sourceFile ? `Imported from ${lead.sourceFile}` : null),
-          }
+        leadsToInsert.push({
+          id: randomUUID(),
+          businessName: lead.businessName,
+          category: lead.category || null,
+          industry: lead.industry || null,
+          contactName: lead.contactName || null,
+          phone: lead.phone || null,
+          email: lead.email || null,
+          websiteStatus: lead.websiteStatus || null,
+          websiteUrl: lead.websiteUrl || null,
+          rating: lead.rating !== undefined ? lead.rating : null,
+          totalReviews: lead.totalReviews !== undefined ? lead.totalReviews : null,
+          address: lead.address || null,
+          googleMapsUrl: lead.googleMapsUrl || null,
+          leadScore: lead.leadScore || 50,
+          crmStatus: lead.crmStatus || 'NEW',
+          assignedUserId: targetAssigneeId,
+          notes: lead.notes || (lead.sourceFile ? `Imported from ${lead.sourceFile}` : null),
         });
-        importedCount++;
       }
     }
 
-    // 2. Process duplicate resolutions
+    // 2. Prepare duplicate resolutions
+    const mergeUpdates: any[] = [];
     if (Array.isArray(resolvedDuplicates)) {
       for (const item of resolvedDuplicates) {
         const { incoming, resolution, existingId } = item;
 
         if (resolution === 'KEEP_BOTH') {
-          await prisma.lead.create({
-            data: {
-              businessName: `${incoming.businessName} (Copy)`,
-              category: incoming.category || null,
-              industry: incoming.industry || null,
-              contactName: incoming.contactName || null,
-              phone: incoming.phone || null,
-              email: incoming.email || null,
-              websiteStatus: incoming.websiteStatus || null,
-              websiteUrl: incoming.websiteUrl || null,
-              rating: incoming.rating !== undefined ? incoming.rating : null,
-              totalReviews: incoming.totalReviews !== undefined ? incoming.totalReviews : null,
-              address: incoming.address || null,
-              googleMapsUrl: incoming.googleMapsUrl || null,
-              leadScore: incoming.leadScore || 50,
-              crmStatus: incoming.crmStatus || 'NEW',
-              assignedUserId: targetAssigneeId,
-              notes: incoming.notes || (incoming.sourceFile ? `Imported duplicate from ${incoming.sourceFile}` : null),
-            }
+          leadsToInsert.push({
+            id: randomUUID(),
+            businessName: `${incoming.businessName} (Copy)`,
+            category: incoming.category || null,
+            industry: incoming.industry || null,
+            contactName: incoming.contactName || null,
+            phone: incoming.phone || null,
+            email: incoming.email || null,
+            websiteStatus: incoming.websiteStatus || null,
+            websiteUrl: incoming.websiteUrl || null,
+            rating: incoming.rating !== undefined ? incoming.rating : null,
+            totalReviews: incoming.totalReviews !== undefined ? incoming.totalReviews : null,
+            address: incoming.address || null,
+            googleMapsUrl: incoming.googleMapsUrl || null,
+            leadScore: incoming.leadScore || 50,
+            crmStatus: incoming.crmStatus || 'NEW',
+            assignedUserId: targetAssigneeId,
+            notes: incoming.notes || (incoming.sourceFile ? `Imported duplicate from ${incoming.sourceFile}` : null),
           });
-          importedCount++;
         } else if (resolution === 'MERGE' && existingId) {
-          const existing = await prisma.lead.findUnique({ where: { id: existingId } });
-          if (existing) {
-            await prisma.lead.update({
+          mergeUpdates.push({ existingId, incoming });
+        } else {
+          skippedCount++;
+        }
+      }
+    }
+
+    // 3. Batch insert leads in chunks of 100 for maximum SQLite performance
+    const BATCH_SIZE = 100;
+    for (let i = 0; i < leadsToInsert.length; i += BATCH_SIZE) {
+      const chunk = leadsToInsert.slice(i, i + BATCH_SIZE);
+      await prisma.lead.createMany({
+        data: chunk,
+      });
+      importedCount += chunk.length;
+    }
+
+    // 4. Batch process merge updates in chunks
+    if (mergeUpdates.length > 0) {
+      const existingIds = mergeUpdates.map(m => m.existingId);
+      const existingRecords = await prisma.lead.findMany({
+        where: { id: { in: existingIds } },
+        select: { id: true, category: true, industry: true, contactName: true, phone: true, email: true, websiteStatus: true, websiteUrl: true, address: true, googleMapsUrl: true, notes: true },
+      });
+      const existingMap = new Map(existingRecords.map(r => [r.id, r]));
+
+      const updateOperations: any[] = [];
+      for (const { existingId, incoming } of mergeUpdates) {
+        const existing = existingMap.get(existingId);
+        if (existing) {
+          updateOperations.push(
+            prisma.lead.update({
               where: { id: existingId },
               data: {
                 category: existing.category || incoming.category || null,
@@ -628,12 +657,16 @@ router.post('/import/confirm', requireAuth, importLimiter, async (req: Authentic
                 googleMapsUrl: existing.googleMapsUrl || incoming.googleMapsUrl || null,
                 notes: existing.notes ? `${existing.notes}\n[Merged info from import: ${incoming.notes || ''}]` : incoming.notes,
               }
-            });
-            mergedCount++;
-          }
-        } else {
-          skippedCount++;
+            })
+          );
         }
+      }
+
+      // Execute updates in transactions of 50
+      for (let i = 0; i < updateOperations.length; i += 50) {
+        const chunk = updateOperations.slice(i, i + 50);
+        await prisma.$transaction(chunk);
+        mergedCount += chunk.length;
       }
     }
 
