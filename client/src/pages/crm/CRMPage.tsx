@@ -439,7 +439,7 @@ export const CRMPage: React.FC<CRMPageProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           {/* View Mode Toggle */}
           <div className="flex items-center bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 text-xs">
             <button
@@ -447,28 +447,28 @@ export const CRMPage: React.FC<CRMPageProps> = ({
                 setViewMode('list');
                 onNavigate('/crm/leads');
               }}
-              className={`p-1.5 rounded flex items-center gap-1.5 transition-colors cursor-pointer ${
+              className={`px-2.5 py-1.5 rounded flex items-center gap-1.5 transition-colors cursor-pointer ${
                 viewMode === 'list'
-                  ? 'bg-zinc-800 text-zinc-100 shadow-xs'
+                  ? 'bg-zinc-800 text-zinc-100 shadow-xs font-semibold'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
               <List className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Table</span>
+              <span>Table</span>
             </button>
             <button
               onClick={() => {
                 setViewMode('pipeline');
                 onNavigate('/crm/pipeline');
               }}
-              className={`p-1.5 rounded flex items-center gap-1.5 transition-colors cursor-pointer ${
+              className={`px-2.5 py-1.5 rounded flex items-center gap-1.5 transition-colors cursor-pointer ${
                 viewMode === 'pipeline'
-                  ? 'bg-zinc-800 text-zinc-100 shadow-xs'
+                  ? 'bg-zinc-800 text-zinc-100 shadow-xs font-semibold'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
               <Kanban className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Pipeline</span>
+              <span>Pipeline</span>
             </button>
           </div>
 
@@ -477,8 +477,10 @@ export const CRMPage: React.FC<CRMPageProps> = ({
             size="sm"
             onClick={() => setIsImportModalOpen(true)}
             icon={<UploadCloud className="w-3.5 h-3.5 text-emerald-400" />}
+            className="flex-1 sm:flex-initial justify-center"
           >
-            Import Excel
+            <span className="hidden sm:inline">Import Excel</span>
+            <span className="sm:hidden">Import</span>
           </Button>
 
           <Button
@@ -489,6 +491,7 @@ export const CRMPage: React.FC<CRMPageProps> = ({
               window.dispatchEvent(event);
             }}
             icon={<Plus className="w-3.5 h-3.5" />}
+            className="flex-1 sm:flex-initial justify-center"
           >
             New Lead
           </Button>
@@ -976,13 +979,13 @@ export const CRMPage: React.FC<CRMPageProps> = ({
         <TableSkeleton rows={8} cols={8} />
       ) : viewMode === 'pipeline' ? (
         /* KANBAN BOARD */
-        <div className="flex gap-4 overflow-x-auto pb-4 pt-1 min-h-[600px] no-scrollbar">
+        <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 pt-1 min-h-[500px] no-scrollbar touch-pan-x snap-x snap-mandatory">
           {stages.map((stage) => {
             const stageLeads = pipelineData[stage] || [];
             return (
               <div
                 key={stage}
-                className="w-72 shrink-0 bg-zinc-900/40 border border-zinc-850 rounded-xl p-3 flex flex-col gap-3"
+                className="w-[82vw] sm:w-72 shrink-0 bg-zinc-900/40 border border-zinc-850 rounded-xl p-3 flex flex-col gap-3 snap-center"
               >
                 {/* Stage Header */}
                 <div className="flex items-center justify-between pb-2 border-b border-zinc-800">

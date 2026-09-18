@@ -680,7 +680,7 @@ export const ClientWorkspacePage: React.FC<ClientWorkspacePageProps> = ({
             </Button>
           </div>
 
-          <div className="bg-zinc-900/30 border border-zinc-850 rounded-xl overflow-hidden">
+          <div className="bg-zinc-900/30 border border-zinc-850 rounded-xl overflow-x-auto touch-pan-x">
             {futurePayments.length === 0 ? (
               <EmptyState
                 title="No future payments scheduled"
@@ -692,7 +692,7 @@ export const ClientWorkspacePage: React.FC<ClientWorkspacePageProps> = ({
                 }}
               />
             ) : (
-              <table className="w-full text-left text-xs">
+              <table className="w-full text-left text-xs min-w-[720px]">
                 <thead className="bg-zinc-900/80 border-b border-zinc-800 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
                   <tr>
                     <th className="px-4 py-3">Invoice / Ref</th>
@@ -911,11 +911,11 @@ export const ClientWorkspacePage: React.FC<ClientWorkspacePageProps> = ({
                 </h4>
               </div>
 
-              <div className="bg-zinc-900/30 border border-zinc-850 rounded-xl overflow-hidden">
+              <div className="bg-zinc-900/30 border border-zinc-850 rounded-xl overflow-x-auto touch-pan-x">
                 {!client.payments || client.payments.length === 0 ? (
                   <p className="text-zinc-500 text-xs italic p-4 text-center">No incoming payments recorded for this client.</p>
                 ) : (
-                  <table className="w-full text-left text-xs">
+                  <table className="w-full text-left text-xs min-w-[640px]">
                     <thead className="bg-zinc-900/80 border-b border-zinc-800 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
                       <tr>
                         <th className="px-4 py-3">Invoice / Ref</th>
@@ -985,11 +985,11 @@ export const ClientWorkspacePage: React.FC<ClientWorkspacePageProps> = ({
                 </h4>
               </div>
 
-              <div className="bg-zinc-900/30 border border-zinc-850 rounded-xl overflow-hidden">
+              <div className="bg-zinc-900/30 border border-zinc-850 rounded-xl overflow-x-auto touch-pan-x">
                 {!client.expenses || client.expenses.length === 0 ? (
                   <p className="text-zinc-500 text-xs italic p-4 text-center">No expenses logged for this client (e.g. hosting, domain, contractor costs).</p>
                 ) : (
-                  <table className="w-full text-left text-xs">
+                  <table className="w-full text-left text-xs min-w-[660px]">
                     <thead className="bg-zinc-900/80 border-b border-zinc-800 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
                       <tr>
                         <th className="px-4 py-3">Vendor / Service</th>

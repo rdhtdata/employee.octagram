@@ -45,7 +45,7 @@ export const Modal: React.FC<ModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/75 backdrop-blur-xs transition-opacity"
@@ -54,23 +54,24 @@ export const Modal: React.FC<ModalProps> = ({
 
       {/* Dialog */}
       <div
-        className={`relative w-full ${widthStyles[maxWidth]} bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl p-6 text-zinc-100 transition-all z-10 my-8`}
+        className={`relative w-full ${widthStyles[maxWidth]} bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-4 sm:p-6 text-zinc-100 transition-all z-10 my-auto sm:my-8 max-h-[92vh] flex flex-col`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between pb-4 mb-4 border-b border-zinc-800/80">
-          <div>
-            <h2 className="text-base font-semibold text-zinc-100">{title}</h2>
-            {subtitle && <p className="text-xs text-zinc-400 mt-0.5">{subtitle}</p>}
+        <div className="flex items-start justify-between pb-3 sm:pb-4 mb-3 sm:mb-4 border-b border-zinc-800/80 shrink-0">
+          <div className="min-w-0 pr-2">
+            <h2 className="text-base font-semibold text-zinc-100 truncate">{title}</h2>
+            {subtitle && <p className="text-xs text-zinc-400 mt-0.5 leading-snug">{subtitle}</p>}
           </div>
           <button
             onClick={onClose}
-            className="text-zinc-400 hover:text-zinc-200 p-1.5 rounded-lg hover:bg-zinc-800 transition-colors"
+            className="text-zinc-400 hover:text-zinc-200 p-2 rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
+            aria-label="Close dialog"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5 sm:w-4 sm:h-4" />
           </button>
         </div>
 
-        <div className="max-h-[75vh] overflow-y-auto pr-1">{children}</div>
+        <div className="overflow-y-auto pr-1 flex-1 touch-pan-y">{children}</div>
       </div>
     </div>
   );

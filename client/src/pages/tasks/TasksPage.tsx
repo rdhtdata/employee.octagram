@@ -305,13 +305,13 @@ export const TasksPage: React.FC<{
             <div
               key={task.id}
               onClick={() => handleOpenTask(task)}
-              className="p-3.5 hover:bg-zinc-850/40 transition-colors flex items-center justify-between gap-4 cursor-pointer group"
+              className="p-3 sm:p-3.5 hover:bg-zinc-850/40 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 cursor-pointer group"
             >
               {/* Left Checkbox & Title */}
-              <div className="flex items-center gap-3.5 min-w-0 flex-1">
+              <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1 w-full">
                 <button
                   onClick={(e) => handleToggleComplete(task, e)}
-                  className="text-zinc-500 hover:text-emerald-400 p-0.5 rounded transition-colors shrink-0 cursor-pointer"
+                  className="text-zinc-500 hover:text-emerald-400 p-0.5 rounded transition-colors shrink-0 cursor-pointer mt-0.5 sm:mt-0"
                 >
                   {task.status === 'COMPLETED' ? (
                     <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -321,7 +321,7 @@ export const TasksPage: React.FC<{
                 </button>
 
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                     <span
                       className={`text-xs font-medium text-zinc-200 truncate ${
                         task.status === 'COMPLETED' ? 'line-through text-zinc-500' : ''
@@ -330,29 +330,29 @@ export const TasksPage: React.FC<{
                       {task.title}
                     </span>
                     {task.automatedType && (
-                      <span className="text-[9px] font-mono px-1 rounded bg-zinc-800 text-zinc-400 border border-zinc-700/60">
+                      <span className="text-[9px] font-mono px-1 rounded bg-zinc-800 text-zinc-400 border border-zinc-700/60 shrink-0">
                         {task.automatedType === 'PAYMENT_REMINDER' ? 'Payment Reminder' : 'Automated'}
                       </span>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-3 text-[11px] text-zinc-400 mt-0.5">
+                  <div className="flex items-center gap-2.5 sm:gap-3 text-[11px] text-zinc-400 mt-0.5 flex-wrap">
                     {task.client && (
                       <span className="flex items-center gap-1 text-zinc-300">
-                        <Building2 className="w-3 h-3 text-zinc-500" />
-                        {task.client.name}
+                        <Building2 className="w-3 h-3 text-zinc-500 shrink-0" />
+                        <span className="truncate max-w-[120px] sm:max-w-none">{task.client.name}</span>
                       </span>
                     )}
                     {task.assignee && (
                       <span className="flex items-center gap-1">
-                        <UserIcon className="w-3 h-3 text-zinc-500" />
-                        {task.assignee.name}
+                        <UserIcon className="w-3 h-3 text-zinc-500 shrink-0" />
+                        <span>{task.assignee.name}</span>
                       </span>
                     )}
                     {task._count?.comments ? (
                       <span className="flex items-center gap-1 text-zinc-400">
-                        <MessageSquare className="w-3 h-3" />
-                        {task._count.comments}
+                        <MessageSquare className="w-3 h-3 shrink-0" />
+                        <span>{task._count.comments}</span>
                       </span>
                     ) : null}
                   </div>
@@ -360,14 +360,16 @@ export const TasksPage: React.FC<{
               </div>
 
               {/* Right Badges & Deadline */}
-              <div className="flex items-center gap-3 shrink-0">
+              <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 w-full sm:w-auto shrink-0 pt-1 sm:pt-0 border-t border-zinc-850/40 sm:border-0">
+                <div className="flex items-center gap-2">
+                  <PriorityBadge priority={task.priority} size="xs" />
+                  <StatusBadge status={task.status} size="xs" />
+                </div>
                 {task.deadline && (
-                  <span className="text-[11px] font-mono text-zinc-400">
+                  <span className="text-[10px] sm:text-[11px] font-mono text-zinc-400">
                     {format(new Date(task.deadline), 'dd MMM yyyy')}
                   </span>
                 )}
-                <PriorityBadge priority={task.priority} size="xs" />
-                <StatusBadge status={task.status} size="xs" />
               </div>
             </div>
           ))}

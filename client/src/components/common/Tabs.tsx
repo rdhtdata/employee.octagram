@@ -16,14 +16,14 @@ interface TabsProps {
 
 export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onChange, className = '' }) => {
   return (
-    <div className={`flex items-center gap-1 border-b border-zinc-800 overflow-x-auto no-scrollbar ${className}`}>
+    <div className={`flex items-center gap-1 border-b border-zinc-800 overflow-x-auto no-scrollbar touch-pan-x ${className}`}>
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id;
         return (
           <button
             key={tab.id}
             onClick={() => onChange(tab.id)}
-            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2 text-xs font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer shrink-0 ${
               isActive
                 ? 'border-zinc-200 text-zinc-100 font-semibold'
                 : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'

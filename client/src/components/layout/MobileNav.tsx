@@ -36,52 +36,40 @@ export const MobileNav: React.FC<MobileNavProps> = ({
       )}
 
       {/* Mobile Bottom Navigation Bar for rapid thumb access */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 h-14 bg-zinc-950/95 backdrop-blur-md border-t border-zinc-900 z-40 flex items-center justify-around px-2">
-        <button
-          onClick={() => onNavigate('/')}
-          className={`flex flex-col items-center gap-1 p-1 text-[10px] ${
-            currentPath === '/' ? 'text-zinc-100 font-semibold' : 'text-zinc-500'
-          }`}
-        >
-          <LayoutDashboard className="w-4 h-4" />
-          <span>Home</span>
-        </button>
-        <button
-          onClick={() => onNavigate('/tasks')}
-          className={`flex flex-col items-center gap-1 p-1 text-[10px] ${
-            currentPath.startsWith('/tasks') ? 'text-zinc-100 font-semibold' : 'text-zinc-500'
-          }`}
-        >
-          <CheckSquare className="w-4 h-4" />
-          <span>Tasks</span>
-        </button>
-        <button
-          onClick={() => onNavigate('/crm/leads')}
-          className={`flex flex-col items-center gap-1 p-1 text-[10px] ${
-            currentPath.startsWith('/crm') ? 'text-zinc-100 font-semibold' : 'text-zinc-500'
-          }`}
-        >
-          <Target className="w-4 h-4" />
-          <span>CRM</span>
-        </button>
-        <button
-          onClick={() => onNavigate('/clients')}
-          className={`flex flex-col items-center gap-1 p-1 text-[10px] ${
-            currentPath.startsWith('/clients') ? 'text-zinc-100 font-semibold' : 'text-zinc-500'
-          }`}
-        >
-          <Building2 className="w-4 h-4" />
-          <span>Clients</span>
-        </button>
-        <button
-          onClick={() => onNavigate('/calendar')}
-          className={`flex flex-col items-center gap-1 p-1 text-[10px] ${
-            currentPath.startsWith('/calendar') ? 'text-zinc-100 font-semibold' : 'text-zinc-500'
-          }`}
-        >
-          <Calendar className="w-4 h-4" />
-          <span>Calendar</span>
-        </button>
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 bg-zinc-950/95 backdrop-blur-lg border-t border-zinc-900 z-40 flex items-center justify-around px-1 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-2xl">
+        {[
+          { path: '/', label: 'Home', icon: LayoutDashboard, exact: true },
+          { path: '/tasks', label: 'Tasks', icon: CheckSquare, exact: false },
+          { path: '/crm/leads', label: 'CRM', icon: Target, exact: false },
+          { path: '/clients', label: 'Clients', icon: Building2, exact: false },
+          { path: '/calendar', label: 'Calendar', icon: Calendar, exact: false },
+        ].map((item) => {
+          const isActive = item.exact
+            ? currentPath === item.path
+            : currentPath.startsWith(item.path);
+          const Icon = item.icon;
+
+          return (
+            <button
+              key={item.path}
+              onClick={() => onNavigate(item.path)}
+              className={`flex flex-col items-center justify-center min-w-[56px] py-1 px-2 rounded-xl transition-all cursor-pointer ${
+                isActive
+                  ? 'text-zinc-100 font-semibold'
+                  : 'text-zinc-500 hover:text-zinc-300 active:scale-95'
+              }`}
+            >
+              <div
+                className={`p-1 rounded-lg transition-colors ${
+                  isActive ? 'bg-zinc-800 text-sky-400' : 'bg-transparent'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+              </div>
+              <span className="text-[10px] mt-0.5 tracking-tight">{item.label}</span>
+            </button>
+          );
+        })}
       </nav>
     </>
   );

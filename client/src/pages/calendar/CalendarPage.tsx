@@ -206,9 +206,12 @@ export const CalendarPage: React.FC<{ initialMeetingId?: string; onNavigate: (pa
         /* MONTH GRID */
         <div className="bg-zinc-900/30 border border-zinc-850 rounded-xl overflow-hidden">
           {/* Day Headers */}
-          <div className="grid grid-cols-7 border-b border-zinc-800 bg-zinc-900/80 text-[11px] font-semibold text-zinc-400 text-center py-2 uppercase tracking-wider">
+          <div className="grid grid-cols-7 border-b border-zinc-800 bg-zinc-900/80 text-[10px] sm:text-[11px] font-semibold text-zinc-400 text-center py-2 uppercase tracking-wider">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-              <div key={d}>{d}</div>
+              <div key={d}>
+                <span className="hidden sm:inline">{d}</span>
+                <span className="sm:hidden">{d.slice(0, 1)}</span>
+              </div>
             ))}
           </div>
 
@@ -222,41 +225,42 @@ export const CalendarPage: React.FC<{ initialMeetingId?: string; onNavigate: (pa
               return (
                 <div
                   key={i}
-                  className={`min-h-[110px] p-2 flex flex-col justify-between transition-colors ${
+                  className={`min-h-[72px] sm:min-h-[110px] p-1 sm:p-2 flex flex-col justify-between transition-colors ${
                     isCurrMonth ? 'bg-zinc-950/40 hover:bg-zinc-900/40' : 'bg-zinc-950/10 opacity-35'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <span
-                      className={`text-[11px] font-mono font-medium rounded-full w-5 h-5 flex items-center justify-center ${
+                      className={`text-[10px] sm:text-[11px] font-mono font-medium rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center ${
                         isTodayDate ? 'bg-zinc-100 text-zinc-950 font-bold' : 'text-zinc-400'
                       }`}
                     >
                       {format(day, 'd')}
                     </span>
                     {dayEvents.length > 0 && (
-                      <span className="text-[10px] text-zinc-500 font-mono">
+                      <span className="text-[9px] sm:text-[10px] text-zinc-500 font-mono">
                         {dayEvents.length}
                       </span>
                     )}
                   </div>
 
                   {/* Day Events Stack */}
-                  <div className="space-y-1 mt-1 flex-1 overflow-y-auto max-h-24">
+                  <div className="space-y-0.5 sm:space-y-1 mt-1 flex-1 overflow-y-auto max-h-16 sm:max-h-24">
                     {dayEvents.slice(0, 3).map((e) => (
                       <div
                         key={e.id}
                         onClick={() => setSelectedEvent(e)}
-                        className={`px-1.5 py-0.5 rounded border text-[10px] truncate cursor-pointer font-medium transition-opacity hover:opacity-80 ${getEventBadge(
+                        className={`px-1 sm:px-1.5 py-0.5 rounded border text-[9px] sm:text-[10px] truncate cursor-pointer font-medium transition-opacity hover:opacity-80 ${getEventBadge(
                           e.type
                         )}`}
                       >
-                        {e.title}
+                        <span className="hidden sm:inline">{e.title}</span>
+                        <span className="sm:hidden">{e.title.slice(0, 10)}</span>
                       </div>
                     ))}
                     {dayEvents.length > 3 && (
-                      <span className="text-[10px] text-zinc-500 font-mono block pl-1">
-                        +{dayEvents.length - 3} more
+                      <span className="text-[9px] sm:text-[10px] text-zinc-500 font-mono block pl-0.5 sm:pl-1">
+                        +{dayEvents.length - 3}
                       </span>
                     )}
                   </div>

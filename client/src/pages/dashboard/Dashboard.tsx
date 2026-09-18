@@ -142,7 +142,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenQuickAct
   return (
     <div className="space-y-6">
       {/* Top Personalized Greeting Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-zinc-900">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-zinc-900">
         <div>
           <h1 className="text-xl sm:text-2xl font-semibold text-zinc-100 tracking-tight">
             {getGreeting()}, {user?.name?.split(' ')[0]}
@@ -152,12 +152,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenQuickAct
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <Button
             variant="secondary"
             size="sm"
             onClick={() => onOpenQuickAction('meeting')}
             icon={<Calendar className="w-3.5 h-3.5" />}
+            className="flex-1 sm:flex-initial justify-center"
           >
             Meeting
           </Button>
@@ -166,6 +167,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenQuickAct
             size="sm"
             onClick={() => onOpenQuickAction('task')}
             icon={<Plus className="w-3.5 h-3.5" />}
+            className="flex-1 sm:flex-initial justify-center"
           >
             Create Task
           </Button>
@@ -327,12 +329,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenQuickAct
               </div>
 
               {/* Task Tabs */}
-              <div className="flex items-center gap-1 bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 text-xs">
+              <div className="flex items-center gap-1 bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 text-xs overflow-x-auto no-scrollbar touch-pan-x w-full sm:w-auto">
                 {(['today', 'overdue', 'upcoming', 'completed'] as const).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTaskTab(tab)}
-                    className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors capitalize cursor-pointer ${
+                    className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors capitalize cursor-pointer whitespace-nowrap shrink-0 ${
                       activeTaskTab === tab
                         ? 'bg-zinc-800 text-zinc-100 shadow-xs'
                         : 'text-zinc-400 hover:text-zinc-200'

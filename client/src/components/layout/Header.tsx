@@ -95,7 +95,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Notifications Dropdown */}
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl z-50 overflow-hidden text-zinc-100 animate-in fade-in-50 duration-150">
+            <div className="absolute right-[-40px] sm:right-0 mt-2 w-[calc(100vw-1.5rem)] max-w-xs sm:max-w-none sm:w-96 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl z-50 overflow-hidden text-zinc-100 animate-in fade-in-50 duration-150">
               <div className="p-3 border-b border-zinc-800 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold text-zinc-200">Notifications</span>

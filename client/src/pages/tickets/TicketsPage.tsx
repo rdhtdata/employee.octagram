@@ -202,10 +202,10 @@ export const TicketsPage: React.FC<{ initialTicketId?: string }> = ({ initialTic
             <div
               key={t.id}
               onClick={() => handleOpenTicket(t)}
-              className="p-3.5 hover:bg-zinc-850/40 transition-colors flex items-center justify-between gap-4 cursor-pointer text-xs group"
+              className="p-3 sm:p-3.5 hover:bg-zinc-850/40 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 cursor-pointer text-xs group"
             >
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <span className="font-mono text-[11px] font-bold text-zinc-400 bg-zinc-850 px-2 py-0.5 rounded border border-zinc-750 shrink-0">
+              <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1 w-full">
+                <span className="font-mono text-[11px] font-bold text-zinc-400 bg-zinc-850 px-2 py-0.5 rounded border border-zinc-750 shrink-0 mt-0.5 sm:mt-0">
                   #{t.ticketNumber}
                 </span>
 
@@ -213,7 +213,7 @@ export const TicketsPage: React.FC<{ initialTicketId?: string }> = ({ initialTic
                   <p className="font-semibold text-zinc-100 group-hover:text-rose-400 transition-colors truncate">
                     {t.title}
                   </p>
-                  <div className="flex items-center gap-3 text-[11px] text-zinc-400 mt-0.5">
+                  <div className="flex items-center gap-2 sm:gap-3 text-[11px] text-zinc-400 mt-0.5 flex-wrap">
                     <span className="font-mono text-[10px] uppercase text-zinc-500">[{t.category}]</span>
                     {t.client && <span>🏢 {t.client.name}</span>}
                     {t.assignee && <span>👤 {t.assignee.name}</span>}
@@ -233,7 +233,7 @@ export const TicketsPage: React.FC<{ initialTicketId?: string }> = ({ initialTic
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto shrink-0 pt-1 sm:pt-0 border-t border-zinc-850/40 sm:border-0">
                 <PriorityBadge priority={t.priority} size="xs" />
                 <StatusBadge status={t.status} size="xs" />
               </div>

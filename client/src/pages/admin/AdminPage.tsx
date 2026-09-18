@@ -244,8 +244,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       {/* TAB 1: USERS & ROLES */}
       {activeTab === 'users' && (
         <div className="space-y-4">
-          <div className="bg-zinc-900/30 border border-zinc-850 rounded-xl overflow-hidden">
-            <table className="w-full text-left text-xs">
+          <div className="bg-zinc-900/30 border border-zinc-850 rounded-xl overflow-x-auto touch-pan-x">
+            <table className="w-full text-left text-xs min-w-[640px]">
               <thead className="bg-zinc-900/80 border-b border-zinc-800 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
                 <tr>
                   <th className="px-4 py-3">User</th>
@@ -385,8 +385,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({
             </Button>
           </div>
 
-          <div className="bg-zinc-900/30 border border-zinc-850 rounded-xl overflow-hidden">
-            <table className="w-full text-left text-xs">
+          <div className="bg-zinc-900/30 border border-zinc-850 rounded-xl overflow-x-auto touch-pan-x">
+            <table className="w-full text-left text-xs min-w-[640px]">
               <thead className="bg-zinc-900/80 border-b border-zinc-800 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
                 <tr>
                   <th className="px-4 py-3">Timestamp</th>
