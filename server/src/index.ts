@@ -193,8 +193,6 @@ app.get('*', (req, res, next) => {
 // Error handling middleware
 app.use(errorHandler);
 
-import { initializeDatabasePragmas } from './prisma.js';
-
 app.listen(PORT, () => {
   console.log(`⚡ Octagram Hub API Server running on port: ${PORT}`);
   console.log(`📡 Healthcheck: http://localhost:${PORT}/api/health`);
@@ -202,7 +200,6 @@ app.listen(PORT, () => {
   // Background non-blocking database warmup & initialization
   (async () => {
     try {
-      await initializeDatabasePragmas();
       await ensureInitialUsers();
     } catch (dbErr) {
       console.error('Initial database setup notice:', dbErr);

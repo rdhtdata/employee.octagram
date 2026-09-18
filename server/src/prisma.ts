@@ -52,18 +52,3 @@ export const prisma = new PrismaClient({
     },
   },
 });
-
-export async function initializeDatabasePragmas() {
-  try {
-    await prisma.$executeRawUnsafe(`PRAGMA busy_timeout = 5000;`);
-    await prisma.$executeRawUnsafe(`PRAGMA synchronous = NORMAL;`);
-    try {
-      await prisma.$executeRawUnsafe(`PRAGMA journal_mode = WAL;`);
-    } catch (walErr) {
-      console.warn('SQLite WAL mode fallback (filesystem limitation):', walErr);
-    }
-    console.log('⚡ SQLite database pragmas initialized successfully');
-  } catch (err) {
-    console.warn('SQLite pragma initialization notice:', err);
-  }
-}
