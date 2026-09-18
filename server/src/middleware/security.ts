@@ -38,8 +38,40 @@ interface RateLimitRecord {
 }
 
 /**
+ * High-speed malicious scanner and bot probe blocker.
+ * Drops probes for .env, php, wp-admin, git, aws, and config files immediately with 404.
+ */
+export const botAndScannerBlocker = (req: Request, res: Response, next: NextFunction): void => {
+  const url = req.url.toLowerCase();
+
+  // Common probe targets
+  const blockedPatterns = [
+    /\.env/,
+    /\.git/,
+    /\.aws/,
+    /\.ssh/,
+    /\.php$/,
+    /wp-admin/,
+    /wp-login/,
+    /wp-includes/,
+    /phpmyadmin/,
+    /xmlrpc\.php/,
+    /\.bak$/,
+    /\.sql$/,
+    /\.config$/,
+  ];
+
+  if (blockedPatterns.some((pattern) => pattern.test(url))) {
+    res.status(404).send('Not Found');
+    return;
+  }
+
+  next();
+};
+
+/**
  * Lightweight, high-throughput in-memory sliding rate limiter.
- * Protects APIs against denial-of-service, automated scraping, and resource exhaustion.
+ * Uses zero background timers (lazy on-the-fly cleanup).
  */
 export class RateLimiter {
   private records: Map<string, RateLimitRecord> = new Map();
@@ -51,12 +83,10 @@ export class RateLimiter {
     this.windowMs = windowMs;
     this.maxRequests = maxRequests;
     this.message = message;
-
-    // Periodic sweep every 2 minutes
-    setInterval(() => this.cleanup(), 2 * 60 * 1000).unref();
   }
 
-  private cleanup(): void {
+  private lazyCleanup(): void {
+    if (this.records.size < 100) return;
     const now = Date.now();
     for (const [key, record] of this.records.entries()) {
       if (record.resetAt <= now) {
@@ -67,6 +97,7 @@ export class RateLimiter {
 
   public middleware() {
     return (req: Request, res: Response, next: NextFunction): void => {
+      this.lazyCleanup();
       const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
       const key = `${clientIp}_${req.baseUrl || ''}${req.path || ''}`;
       const now = Date.now();

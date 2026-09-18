@@ -10,8 +10,9 @@ const LOCKOUT_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 // In-memory store for high-performance zero-overhead lockout tracking
 const attemptsStore = new Map<string, AttemptRecord>();
 
-// Clean up stale entries every 10 minutes
-setInterval(() => {
+// Lazy cleanup on-the-fly without standing background timers
+function lazyCleanup(): void {
+  if (attemptsStore.size < 50) return;
   const now = Date.now();
   for (const [key, record] of attemptsStore.entries()) {
     if (record.lockedUntil && record.lockedUntil < now && now - record.lastAttempt > LOCKOUT_DURATION_MS * 2) {
@@ -20,7 +21,7 @@ setInterval(() => {
       attemptsStore.delete(key);
     }
   }
-}, 10 * 60 * 1000);
+}
 
 function getKeys(email: string, ip?: string): string[] {
   const keys: string[] = [];
@@ -34,6 +35,7 @@ export const LoginRateLimiter = {
    * Checks if an email or IP address is currently locked out.
    */
   checkLockout(email: string, ip?: string): { isLocked: boolean; remainingSeconds: number } {
+    lazyCleanup();
     const now = Date.now();
     const keys = getKeys(email, ip);
 

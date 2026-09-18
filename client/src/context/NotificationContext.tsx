@@ -42,11 +42,41 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, [token, user]);
 
   useEffect(() => {
+    if (!token || !user) return;
+
     fetchNotifications();
-    // Poll every 30 seconds
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
-  }, [fetchNotifications]);
+
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const startPolling = () => {
+      if (intervalId) clearInterval(intervalId);
+      if (typeof document !== 'undefined' && !document.hidden) {
+        intervalId = setInterval(fetchNotifications, 60000); // 60s in active foreground
+      }
+    };
+
+    const handleVisibilityOrFocus = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        fetchNotifications();
+        startPolling();
+      } else {
+        if (intervalId) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
+      }
+    };
+
+    startPolling();
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+    };
+  }, [fetchNotifications, token, user]);
 
   const markAsRead = async (id: string) => {
     try {

@@ -1,0 +1,36 @@
+# ----------------------------------------------------------------------
+# LiteSpeed & Phusion Passenger Single Worker Process Configuration
+# ----------------------------------------------------------------------
+<IfModule mod_passenger.c>
+  PassengerAppEnv production
+  PassengerMinInstances 1
+  PassengerMaxPoolSize 1
+  PassengerMaxInstancesPerApp 1
+  PassengerPoolIdleTime 0
+  PassengerMaxRequestQueueSize 100
+</IfModule>
+
+# ----------------------------------------------------------------------
+# Block Malicious Scanners, Bot Probes & Exploits at the Web Server Level
+# ----------------------------------------------------------------------
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Block hidden environment / git / config files
+  RewriteRule ^\.(env|git|aws|ssh|config) - [F,L]
+
+  # Block PHP / ASP / CGI execution probes on Node.js app
+  RewriteRule \.(php|asp|aspx|jsp|cgi|pl|sh|sql|bak|yml|yaml)$ - [F,L]
+
+  # Block WordPress / phpMyAdmin / Webmail automated attack bots
+  RewriteRule (wp-admin|wp-login|wp-includes|phpmyadmin|pma|xmlrpc) - [F,L]
+</IfModule>
+
+# ----------------------------------------------------------------------
+# Security Headers & Bot Crawler Deterrence
+# ----------------------------------------------------------------------
+<IfModule mod_headers.c>
+  Header set X-Robots-Tag "noindex, nofollow, noarchive, nosnippet"
+  Header set X-Content-Type-Options "nosniff"
+  Header set X-Frame-Options "SAMEORIGIN"
+</IfModule>

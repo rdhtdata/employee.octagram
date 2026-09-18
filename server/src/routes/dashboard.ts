@@ -6,6 +6,9 @@ import { AutomationEngine } from '../services/automation.js';
 
 const router = Router();
 
+let lastSyncTime = 0;
+const SYNC_THROTTLE_MS = 15 * 60 * 1000; // 15 minutes
+
 // GET /api/dashboard - Personalized operations hub dashboard
 router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
@@ -13,12 +16,14 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response): P
     const isAdmin = req.user!.role === 'ADMIN' || req.user!.role === 'DEV';
     const isSales = req.user!.role === 'SALES';
 
-    // Trigger background sync for payments and follow-ups
-    try {
-      await AutomationEngine.syncPaymentReminders();
-      await AutomationEngine.syncLeadFollowUps();
-    } catch (e) {
-      console.warn('Auto-sync warning in dashboard:', e);
+    // Throttled non-blocking on-demand sync for payments and follow-ups
+    const nowMs = Date.now();
+    if (nowMs - lastSyncTime > SYNC_THROTTLE_MS) {
+      lastSyncTime = nowMs;
+      Promise.all([
+        AutomationEngine.syncPaymentReminders(),
+        AutomationEngine.syncLeadFollowUps(),
+      ]).catch((e) => console.warn('Auto-sync notice in dashboard:', e));
     }
 
     const now = new Date();

@@ -1,3 +1,4 @@
+process.env.UV_THREADPOOL_SIZE = process.env.UV_THREADPOOL_SIZE || '1';
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -25,9 +26,13 @@ import exportRoutes from './routes/export.js';
 import dashboardRoutes from './routes/dashboard.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { AutomationEngine } from './services/automation.js';
+import { securityHeaders, globalApiLimiter, validateOrigin, botAndScannerBlocker } from './middleware/security.js';
 
 const app = express();
 app.set('trust proxy', 1);
+
+// Immediate bot/scanner drop before routing
+app.use(botAndScannerBlocker);
 
 const rawPort = process.env.PORT || 5001;
 const PORT = isNaN(Number(rawPort)) ? rawPort : Number(rawPort);
@@ -104,8 +109,6 @@ async function ensureInitialUsers() {
     console.error('Initial user check warning:', err);
   }
 }
-
-import { securityHeaders, globalApiLimiter, validateOrigin } from './middleware/security.js';
 
 // Apply defensive security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options)
 app.use(securityHeaders);
@@ -215,11 +218,4 @@ app.listen(PORT, () => {
       );
     }, 4000);
   })();
-
-  // Periodic automation interval every 5 minutes
-  setInterval(() => {
-    AutomationEngine.syncPaymentReminders().catch((err) =>
-      console.error('Periodic payment reminder sync warning:', err)
-    );
-  }, 5 * 60 * 1000);
 });
