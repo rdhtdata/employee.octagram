@@ -1,4 +1,3 @@
-process.env.UV_THREADPOOL_SIZE = process.env.UV_THREADPOOL_SIZE || '1';
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -146,7 +145,7 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     timestamp: new Date().toISOString(),
     service: 'Octagram Internal Operations Hub API',
-    version: '1.1.0'
+    version: '1.1.1'
   });
 });
 

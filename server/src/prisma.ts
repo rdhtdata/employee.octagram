@@ -12,49 +12,14 @@ function getDbUrl(): string {
     return process.env.DATABASE_URL;
   }
 
-  // Potential SQLite paths in different execution environments
+  // Locate the actual SQLite database file generated during build
   const candidate1 = path.resolve(__dirname, '../prisma/dev.db');
   const candidate2 = path.resolve(process.cwd(), 'server/prisma/dev.db');
   const candidate3 = path.resolve(process.cwd(), 'prisma/dev.db');
   const candidate4 = path.resolve(__dirname, '../../server/prisma/dev.db');
   const candidate5 = path.resolve(process.cwd(), 'dev.db');
 
-  const sourceDb = [candidate1, candidate2, candidate3, candidate4, candidate5].find((p) => fs.existsSync(p)) || candidate1;
-
-  let targetDbPath = sourceDb;
-
-  // In hosted environments, use writable directory
-  const isHosted = sourceDb.includes('hbuilds') || process.env.NODE_ENV === 'production' || !!process.env.HOME;
-  if (isHosted && process.env.HOME && process.env.HOME !== '/root') {
-    try {
-      const persistentDir = path.resolve(process.env.HOME, '.octagram_data');
-      if (!fs.existsSync(persistentDir)) {
-        fs.mkdirSync(persistentDir, { recursive: true });
-      }
-      const persistentDb = path.resolve(persistentDir, 'dev.db');
-      
-      // Clean any stale SQLite lock files from previous killed processes
-      const staleLockFiles = [`${persistentDb}-journal`, `${persistentDb}-wal`, `${persistentDb}-shm`];
-      for (const lockFile of staleLockFiles) {
-        if (fs.existsSync(lockFile)) {
-          try {
-            fs.unlinkSync(lockFile);
-            console.log(`🧹 Cleaned stale SQLite lock file: ${lockFile}`);
-          } catch {}
-        }
-      }
-
-      if (!fs.existsSync(persistentDb) && fs.existsSync(sourceDb)) {
-        fs.copyFileSync(sourceDb, persistentDb);
-        console.log(`📋 Copied seed database to persistent storage: ${persistentDb}`);
-      }
-      if (fs.existsSync(persistentDb)) {
-        targetDbPath = persistentDb;
-      }
-    } catch (err) {
-      console.warn('Persistent directory notice, using source path:', err);
-    }
-  }
+  const targetDbPath = [candidate1, candidate2, candidate3, candidate4, candidate5].find((p) => fs.existsSync(p)) || candidate1;
 
   const parentDir = path.dirname(targetDbPath);
   if (!fs.existsSync(parentDir)) {
@@ -65,8 +30,8 @@ function getDbUrl(): string {
     }
   }
 
-  console.log(`📦 Prisma database path: ${targetDbPath}`);
-  return `file:${targetDbPath}?connection_limit=1`;
+  console.log(`📦 Prisma connected to database at: ${targetDbPath}`);
+  return `file:${targetDbPath}`;
 }
 
 export const prisma = new PrismaClient({
@@ -75,16 +40,14 @@ export const prisma = new PrismaClient({
       url: getDbUrl(),
     },
   },
-  log: ['query', 'info', 'warn', 'error'],
+  log: ['info', 'warn', 'error'],
 });
 
 export async function connectDatabase(): Promise<boolean> {
   try {
     const start = Date.now();
     await prisma.$connect();
-    // Verify fast query execution
-    await prisma.$queryRawUnsafe('SELECT 1;');
-    console.log(`⚡ Prisma connected and verified database in ${Date.now() - start}ms`);
+    console.log(`⚡ Prisma connected and initialized in ${Date.now() - start}ms`);
     return true;
   } catch (err) {
     console.error('❌ Prisma database connection error:', err);
