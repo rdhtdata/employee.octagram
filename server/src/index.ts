@@ -34,9 +34,6 @@ const PORT = isNaN(Number(rawPort)) ? rawPort : Number(rawPort);
 
 async function ensureInitialUsers() {
   try {
-    const adminPasswordHash = await bcrypt.hash('zidane123', 10);
-    const salesPasswordHash = await bcrypt.hash('octagram123', 10);
-
     const initialUsers = [
       {
         email: 'harsh@octagramai.com',
@@ -44,7 +41,6 @@ async function ensureInitialUsers() {
         role: 'DEV',
         department: 'Engineering & Leadership',
         plainPassword: 'zidane123',
-        passwordHash: adminPasswordHash,
       },
       {
         email: 'vishnu@octagramai.com',
@@ -52,7 +48,6 @@ async function ensureInitialUsers() {
         role: 'ADMIN',
         department: 'Leadership & Operations',
         plainPassword: 'zidane123',
-        passwordHash: adminPasswordHash,
       },
       {
         email: 'sanjana@octagramai.com',
@@ -60,7 +55,6 @@ async function ensureInitialUsers() {
         role: 'ADMIN',
         department: 'Leadership & Operations',
         plainPassword: 'zidane123',
-        passwordHash: adminPasswordHash,
       },
       {
         email: 'sumaiya@octagramai.com',
@@ -68,13 +62,13 @@ async function ensureInitialUsers() {
         role: 'SALES',
         department: 'Sales & Outreach',
         plainPassword: 'octagram123',
-        passwordHash: salesPasswordHash,
       },
     ];
 
     for (const u of initialUsers) {
       const existing = await prisma.user.findUnique({ where: { email: u.email } });
       if (!existing) {
+        const passwordHash = await bcrypt.hash(u.plainPassword, 10);
         await prisma.user.create({
           data: {
             email: u.email,
@@ -82,7 +76,7 @@ async function ensureInitialUsers() {
             role: u.role as any,
             department: u.department,
             plainPassword: u.plainPassword,
-            passwordHash: u.passwordHash,
+            passwordHash,
             isActive: true,
           }
         });
@@ -105,6 +99,7 @@ async function ensureInitialUsers() {
         }
       }
     }
+    console.log('✅ [STARTUP] Authorized accounts ready.');
   } catch (err) {
     console.error('Initial user check warning:', err);
   }

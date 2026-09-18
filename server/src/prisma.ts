@@ -54,7 +54,7 @@ function getDbUrl(): string {
   }
 
   console.log(`📦 Prisma connected to database at: ${targetDbPath}`);
-  return `file:${targetDbPath}?connection_limit=1&socket_timeout=10`;
+  return `file:${targetDbPath}?connection_limit=1`;
 }
 
 export const prisma = new PrismaClient({
