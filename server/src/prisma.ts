@@ -19,30 +19,42 @@ function getDbUrl(): string {
   const candidate4 = path.resolve(__dirname, '../../server/prisma/dev.db');
   const candidate5 = path.resolve(process.cwd(), 'dev.db');
 
-  let chosenPath = candidate1;
-  if (fs.existsSync(candidate1)) {
-    chosenPath = candidate1;
-  } else if (fs.existsSync(candidate2)) {
-    chosenPath = candidate2;
-  } else if (fs.existsSync(candidate3)) {
-    chosenPath = candidate3;
-  } else if (fs.existsSync(candidate4)) {
-    chosenPath = candidate4;
-  } else if (fs.existsSync(candidate5)) {
-    chosenPath = candidate5;
-  } else {
-    const parentDir = path.dirname(chosenPath);
-    if (!fs.existsSync(parentDir)) {
-      try {
-        fs.mkdirSync(parentDir, { recursive: true });
-      } catch (e) {
-        console.warn('Could not create DB parent directory:', e);
+  const sourceDb = [candidate1, candidate2, candidate3, candidate4, candidate5].find((p) => fs.existsSync(p)) || candidate1;
+
+  let targetDbPath = sourceDb;
+
+  // If in production or running in an immutable build version directory (e.g. Hostinger hbuilds), use writable persistent path
+  const isHosted = sourceDb.includes('hbuilds') || process.env.NODE_ENV === 'production' || !!process.env.HOME;
+  if (isHosted && process.env.HOME && process.env.HOME !== '/root') {
+    try {
+      const persistentDir = path.resolve(process.env.HOME, '.octagram_data');
+      if (!fs.existsSync(persistentDir)) {
+        fs.mkdirSync(persistentDir, { recursive: true });
       }
+      const persistentDb = path.resolve(persistentDir, 'dev.db');
+      if (!fs.existsSync(persistentDb) && fs.existsSync(sourceDb)) {
+        fs.copyFileSync(sourceDb, persistentDb);
+        console.log(`📋 Copied seed database to persistent storage: ${persistentDb}`);
+      }
+      if (fs.existsSync(persistentDb)) {
+        targetDbPath = persistentDb;
+      }
+    } catch (err) {
+      console.warn('Persistent directory notice, using source path:', err);
     }
   }
 
-  console.log(`📦 Prisma connected to database at: ${chosenPath}`);
-  return `file:${chosenPath}`;
+  const parentDir = path.dirname(targetDbPath);
+  if (!fs.existsSync(parentDir)) {
+    try {
+      fs.mkdirSync(parentDir, { recursive: true });
+    } catch (e) {
+      console.warn('Could not create DB parent directory:', e);
+    }
+  }
+
+  console.log(`📦 Prisma connected to database at: ${targetDbPath}`);
+  return `file:${targetDbPath}?connection_limit=1&socket_timeout=10`;
 }
 
 export const prisma = new PrismaClient({
@@ -51,4 +63,5 @@ export const prisma = new PrismaClient({
       url: getDbUrl(),
     },
   },
+  log: ['warn', 'error'],
 });
