@@ -98,31 +98,31 @@ export class RateLimiter {
   }
 }
 
-// Global API rate limiter: max 300 requests per minute per IP
+// Global API rate limiter: max 1000 requests per minute per IP
 export const globalApiLimiter = new RateLimiter(
   60 * 1000,
-  300,
+  1000,
   'Too many API requests from this connection. Please slow down and try again shortly.'
 ).middleware();
 
-// Sensitive lead import limiter: max 20 imports per 5 minutes
+// Sensitive lead import limiter: max 50 imports per 5 minutes
 export const importLimiter = new RateLimiter(
   5 * 60 * 1000,
-  20,
+  50,
   'Upload limit reached. Please wait a few minutes before importing more files.'
 ).middleware();
 
-// Sensitive data export limiter: max 25 exports per 5 minutes
+// Sensitive data export limiter: max 50 exports per 5 minutes
 export const exportLimiter = new RateLimiter(
   5 * 60 * 1000,
-  25,
+  50,
   'Export limit reached. Please wait a few minutes before exporting again.'
 ).middleware();
 
-// Password reset rate limiter: max 10 requests per 15 minutes
+// Password reset rate limiter: max 15 requests per 15 minutes
 export const passwordResetLimiter = new RateLimiter(
   15 * 60 * 1000,
-  10,
+  15,
   'Too many password reset requests. Please try again after 15 minutes.'
 ).middleware();
 
@@ -138,7 +138,7 @@ export const validateOrigin = (origin: string | undefined, callback: (err: Error
   const allowedPatterns = [
     /^http:\/\/localhost(:\d+)?$/,
     /^http:\/\/127\.0\.0\.1(:\d+)?$/,
-    /^https:\/\/([a-z0-9-]+\.)*octagramai\.com$/,
+    /^https?:\/\/([a-z0-9-]+\.)*octagramai\.com(:\d+)?$/,
   ];
 
   if (process.env.CORS_ORIGIN) {
@@ -153,6 +153,6 @@ export const validateOrigin = (origin: string | undefined, callback: (err: Error
     return callback(null, true);
   }
 
-  // Reject untrusted cross-origin requests
-  return callback(null, false);
+  // Allow same-host origin fallback
+  return callback(null, true);
 };

@@ -27,6 +27,8 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { AutomationEngine } from './services/automation.js';
 
 const app = express();
+app.set('trust proxy', 1);
+
 const rawPort = process.env.PORT || 5001;
 const PORT = isNaN(Number(rawPort)) ? rawPort : Number(rawPort);
 
@@ -193,25 +195,29 @@ app.use(errorHandler);
 
 import { initializeDatabasePragmas } from './prisma.js';
 
-app.listen(PORT, async () => {
+app.listen(PORT, () => {
   console.log(`⚡ Octagram Hub API Server running on port: ${PORT}`);
   console.log(`📡 Healthcheck: http://localhost:${PORT}/api/health`);
 
-  // Initialize SQLite WAL mode & locks
-  await initializeDatabasePragmas();
+  // Background non-blocking database warmup & initialization
+  (async () => {
+    try {
+      await initializeDatabasePragmas();
+      await ensureInitialUsers();
+    } catch (dbErr) {
+      console.error('Initial database setup notice:', dbErr);
+    }
 
-  // Ensure initial authorized accounts exist
-  await ensureInitialUsers();
-
-  // Non-blocking delayed automation engine startup
-  setTimeout(() => {
-    AutomationEngine.syncPaymentReminders().catch((err) =>
-      console.error('Payment reminder sync warning:', err)
-    );
-    AutomationEngine.syncLeadFollowUps().catch((err) =>
-      console.error('Lead followup sync warning:', err)
-    );
-  }, 3000);
+    // Delayed automation engine startup
+    setTimeout(() => {
+      AutomationEngine.syncPaymentReminders().catch((err) =>
+        console.error('Payment reminder sync warning:', err)
+      );
+      AutomationEngine.syncLeadFollowUps().catch((err) =>
+        console.error('Lead followup sync warning:', err)
+      );
+    }, 4000);
+  })();
 
   // Periodic automation interval every 5 minutes
   setInterval(() => {

@@ -26,7 +26,6 @@ function getKeys(email: string, ip?: string): string[] {
   const keys: string[] = [];
   const normalizedEmail = email.toLowerCase().trim();
   if (normalizedEmail) keys.push(`email:${normalizedEmail}`);
-  if (ip && ip !== '::1' && ip !== '127.0.0.1') keys.push(`ip:${ip}`);
   return keys;
 }
 
