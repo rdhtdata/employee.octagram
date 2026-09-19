@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Notification } from '../types/index.js';
 import { api } from '../services/api.js';
 import { useAuth } from './AuthContext.js';
@@ -30,51 +30,50 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
 
+  // Request deduplication & in-flight tracking refs (prevents duplicate bursts and parallel requests)
+  const isFetchingRef = useRef<boolean>(false);
+  const lastFetchTimeRef = useRef<number>(0);
+
   const fetchNotifications = useCallback(async () => {
     if (!token || !user) return;
+
+    const now = Date.now();
+    // Ignore trigger if a fetch is already in-flight or completed less than 2000ms ago
+    if (isFetchingRef.current || (now - lastFetchTimeRef.current < 2000)) {
+      return;
+    }
+
+    isFetchingRef.current = true;
     try {
       const res = await api.notifications.list();
       setNotifications(res.notifications || []);
       setUnreadCount(res.unreadCount || 0);
+      lastFetchTimeRef.current = Date.now();
     } catch (e) {
       console.warn('Failed to fetch notifications');
+    } finally {
+      isFetchingRef.current = false;
     }
   }, [token, user]);
 
+  // Initial fetch on authentication and single fetch upon returning to active tab
   useEffect(() => {
     if (!token || !user) return;
 
+    // 1. Initial fetch once when authenticated
     fetchNotifications();
 
-    let intervalId: ReturnType<typeof setInterval> | null = null;
-
-    const startPolling = () => {
-      if (intervalId) clearInterval(intervalId);
-      if (typeof document !== 'undefined' && !document.hidden) {
-        intervalId = setInterval(fetchNotifications, 60000); // 60s in active foreground
-      }
-    };
-
-    const handleVisibilityOrFocus = () => {
-      if (typeof document !== 'undefined' && !document.hidden) {
+    // 2. Tab Return handler: fetch once when user returns to visible browser tab (NO recurring polling)
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         fetchNotifications();
-        startPolling();
-      } else {
-        if (intervalId) {
-          clearInterval(intervalId);
-          intervalId = null;
-        }
       }
     };
 
-    startPolling();
-    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
-    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      if (intervalId) clearInterval(intervalId);
-      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
-      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [fetchNotifications, token, user]);
 

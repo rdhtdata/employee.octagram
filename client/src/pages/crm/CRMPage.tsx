@@ -60,7 +60,7 @@ export const CRMPage: React.FC<CRMPageProps> = ({
   onNavigate,
 }) => {
   const { user } = useAuth();
-  const { showToast } = useNotification();
+  const { showToast, fetchNotifications } = useNotification();
 
   const [viewMode, setViewMode] = useState<'pipeline' | 'list'>(initialView === 'pipeline' ? 'pipeline' : 'list');
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -370,6 +370,7 @@ export const CRMPage: React.FC<CRMPageProps> = ({
       setSelectedLead(res.lead);
       showToast('Follow-up scheduled and task reminder synced', 'success');
       fetchCRMData();
+      fetchNotifications();
     } catch (err) {
       showToast('Failed to schedule follow-up', 'error');
     }

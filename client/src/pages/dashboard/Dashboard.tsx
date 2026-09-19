@@ -32,7 +32,7 @@ interface DashboardProps {
 
 export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenQuickAction }) => {
   const { user, isAdmin } = useAuth();
-  const { showToast } = useNotification();
+  const { showToast, fetchNotifications } = useNotification();
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTaskTab, setActiveTaskTab] = useState<'today' | 'overdue' | 'upcoming' | 'completed'>('today');
@@ -51,6 +51,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenQuickAct
 
   useEffect(() => {
     fetchDashboard();
+    fetchNotifications();
   }, []);
 
   const handleToggleTaskStatus = async (task: Task, e: React.MouseEvent) => {
@@ -60,6 +61,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenQuickAct
       await api.tasks.update(task.id, { status: newStatus });
       showToast(newStatus === 'COMPLETED' ? 'Task completed' : 'Task reopened', 'success');
       fetchDashboard();
+      fetchNotifications();
     } catch (err) {
       showToast('Failed to update task status', 'error');
     }

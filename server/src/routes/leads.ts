@@ -5,6 +5,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { AuthenticatedRequest } from '../types/index.js';
 import { logActivity } from '../services/auditLogger.js';
 import { LeadParserService, NormalizedLead } from '../services/leadParser.js';
+import { AutomationEngine } from '../services/automation.js';
 
 import path from 'path';
 import { randomUUID } from 'crypto';
@@ -349,6 +350,10 @@ router.post('/', requireAuth, async (req: AuthenticatedRequest, res: Response): 
       details: { businessName: lead.businessName, crmStatus: lead.crmStatus }
     });
 
+    if (lead.nextFollowUpDate && lead.assignedUserId) {
+      AutomationEngine.syncLeadFollowUps().catch((e) => console.warn('Lead follow-up sync warning on create:', e));
+    }
+
     res.status(201).json({ lead });
   } catch (error) {
     res.status(500).json({ error: 'Failed to create lead.' });
@@ -420,6 +425,10 @@ router.patch('/:id', requireAuth, async (req: AuthenticatedRequest, res: Respons
       entityId: updated.id,
       details: { businessName: updated.businessName, crmStatus: updated.crmStatus }
     });
+
+    if (updated.nextFollowUpDate && updated.assignedUserId) {
+      AutomationEngine.syncLeadFollowUps().catch((e) => console.warn('Lead follow-up sync warning on update:', e));
+    }
 
     res.json({ lead: updated });
   } catch (error) {

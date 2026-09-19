@@ -47,7 +47,13 @@ export async function connectDatabase(): Promise<boolean> {
   try {
     const start = Date.now();
     await prisma.$connect();
-    console.log(`⚡ Prisma connected and initialized in ${Date.now() - start}ms`);
+    // Configure SQLite for high-concurrency non-blocking reads and resilient busy timeout
+    // Note: SQLite PRAGMAs return result sets, so $queryRawUnsafe must be used in Prisma
+    const journalResult = await prisma.$queryRawUnsafe<Array<{ journal_mode: string }>>('PRAGMA journal_mode = WAL;');
+    await prisma.$queryRawUnsafe('PRAGMA busy_timeout = 5000;');
+    await prisma.$queryRawUnsafe('PRAGMA synchronous = NORMAL;');
+    const mode = Array.isArray(journalResult) && journalResult[0]?.journal_mode ? journalResult[0].journal_mode : 'wal';
+    console.log(`⚡ Prisma connected (SQLite Journal Mode: ${mode.toUpperCase()}, Busy Timeout: 5000ms) in ${Date.now() - start}ms`);
     return true;
   } catch (err) {
     console.error('❌ Prisma database connection error:', err);

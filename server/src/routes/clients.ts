@@ -3,7 +3,6 @@ import { prisma } from '../prisma.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { AuthenticatedRequest } from '../types/index.js';
 import { logActivity } from '../services/auditLogger.js';
-import { AutomationEngine } from '../services/automation.js';
 
 const router = Router();
 
@@ -65,12 +64,6 @@ router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response)
 
     const id = req.params.id as string;
     const isAdmin = req.user!.role === 'ADMIN';
-
-    try {
-      await AutomationEngine.syncPaymentReminders();
-    } catch (e) {
-      console.warn('Sync payment reminders warning in client workspace:', e);
-    }
 
     const client = await prisma.client.findUnique({
       where: { id },

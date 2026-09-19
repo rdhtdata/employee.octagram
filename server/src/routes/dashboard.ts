@@ -7,23 +7,31 @@ import { AutomationEngine } from '../services/automation.js';
 const router = Router();
 
 let lastSyncTime = 0;
-const SYNC_THROTTLE_MS = 15 * 60 * 1000; // 15 minutes
+let isSyncing = false;
+const SYNC_THROTTLE_MS = 30 * 60 * 1000; // Strongly throttled: max once every 30 minutes
 
-// GET /api/dashboard - Personalized operations hub dashboard
+// GET /api/dashboard - Personalized operations hub dashboard (read-only with throttled background sync guard)
 router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const currentUserId = req.user!.userId;
     const isAdmin = req.user!.role === 'ADMIN' || req.user!.role === 'DEV';
     const isSales = req.user!.role === 'SALES';
 
-    // Throttled non-blocking on-demand sync for payments and follow-ups
+    // Strongly throttled, non-blocking on-demand sync with mutex guard to prevent concurrent execution
     const nowMs = Date.now();
-    if (nowMs - lastSyncTime > SYNC_THROTTLE_MS) {
+    if (!isSyncing && (nowMs - lastSyncTime > SYNC_THROTTLE_MS)) {
+      isSyncing = true;
       lastSyncTime = nowMs;
-      Promise.all([
-        AutomationEngine.syncPaymentReminders(),
-        AutomationEngine.syncLeadFollowUps(),
-      ]).catch((e) => console.warn('Auto-sync notice in dashboard:', e));
+      (async () => {
+        try {
+          await AutomationEngine.syncPaymentReminders();
+          await AutomationEngine.syncLeadFollowUps();
+        } catch (e) {
+          console.warn('Auto-sync notice in dashboard:', e);
+        } finally {
+          isSyncing = false;
+        }
+      })();
     }
 
     const now = new Date();

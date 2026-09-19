@@ -31,7 +31,7 @@ export const TasksPage: React.FC<{
   initialView?: 'my' | 'team' | 'today' | 'overdue' | 'upcoming' | 'all';
 }> = ({ initialTaskId, initialView }) => {
   const { user, isAdmin } = useAuth();
-  const { showToast } = useNotification();
+  const { showToast, fetchNotifications } = useNotification();
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [usersList, setUsersList] = useState<User[]>([]);
@@ -121,6 +121,7 @@ export const TasksPage: React.FC<{
         setSelectedTask(prev => prev ? { ...prev, status: newStatus as any } : null);
       }
       showToast(newStatus === 'COMPLETED' ? 'Task marked as completed' : 'Task reopened', 'success');
+      fetchNotifications();
     } catch (err) {
       showToast('Failed to update status', 'error');
     }
@@ -142,6 +143,7 @@ export const TasksPage: React.FC<{
       setSelectedTask(res.task);
       setTasks(prev => prev.map(t => t.id === selectedTask.id ? { ...t, ...fields } : t));
       showToast('Task updated', 'success');
+      fetchNotifications();
     } catch (err) {
       showToast('Failed to update task', 'error');
     }
@@ -158,7 +160,8 @@ export const TasksPage: React.FC<{
         comments: [...(prev.comments || []), res.comment]
       } : null);
       setCommentContent('');
-      showToast('Comment posted', 'success');
+      showToast('Comment added', 'success');
+      fetchNotifications();
     } catch (err) {
       showToast('Failed to post comment', 'error');
     } finally {

@@ -19,7 +19,7 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigate,
 }) => {
   const { user } = useAuth();
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotification();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, fetchNotifications } = useNotification();
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationRef = useRef<HTMLDivElement>(null);
 
@@ -83,7 +83,12 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Notification Bell */}
         <div className="relative" ref={notificationRef}>
           <button
-            onClick={() => setShowNotifications(!showNotifications)}
+            onClick={() => {
+              if (!showNotifications) {
+                fetchNotifications();
+              }
+              setShowNotifications(!showNotifications);
+            }}
             className="relative p-2 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 transition-colors cursor-pointer"
             title="Notifications"
           >

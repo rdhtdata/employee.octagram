@@ -3,18 +3,12 @@ import { prisma } from '../prisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { AuthenticatedRequest } from '../types/index.js';
 import { logActivity } from '../services/auditLogger.js';
-import { AutomationEngine } from '../services/automation.js';
 
 const router = Router();
 
-// GET /api/tasks - List tasks with flexible filters
+// GET /api/tasks - List tasks with flexible filters (purely read-only)
 router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    try {
-      await AutomationEngine.syncPaymentReminders();
-    } catch (e) {
-      console.warn('Sync payment reminders warning in get tasks:', e);
-    }
     const {
       view, // 'my' | 'team' | 'overdue' | 'today' | 'upcoming'
       status,

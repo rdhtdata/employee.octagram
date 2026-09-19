@@ -20,7 +20,7 @@ export const QuickActionModal: React.FC<QuickActionModalProps> = ({
   defaultType = 'task',
 }) => {
   const { user, isAdmin } = useAuth();
-  const { showToast } = useNotification();
+  const { showToast, fetchNotifications } = useNotification();
   const [activeType, setActiveType] = useState<string>(defaultType);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -177,6 +177,7 @@ export const QuickActionModal: React.FC<QuickActionModalProps> = ({
       }
 
       onClose();
+      fetchNotifications();
       if (onSuccess) onSuccess();
     } catch (err: any) {
       showToast(err.message || 'Operation failed', 'error');

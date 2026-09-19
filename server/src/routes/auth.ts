@@ -48,8 +48,7 @@ router.post('/login', async (req, res): Promise<void> => {
     console.log(`🔍 [AUTH] Searching for user: "${input}" or "${candidateEmail}"`);
     const startTime = Date.now();
 
-    // Safety timeout promise guard (15 seconds)
-    const findUserPromise = prisma.user.findFirst({
+    const user = await prisma.user.findFirst({
       where: {
         OR: [
           { email: candidateEmail },
@@ -57,13 +56,6 @@ router.post('/login', async (req, res): Promise<void> => {
         ]
       }
     });
-
-    let timer: NodeJS.Timeout;
-    const timeoutPromise = new Promise<null>((_, reject) => {
-      timer = setTimeout(() => reject(new Error('Database query timed out (15s)')), 15000);
-    });
-
-    const user = await Promise.race([findUserPromise, timeoutPromise]).finally(() => clearTimeout(timer));
     console.log(`⏱️ [AUTH] User search completed in ${Date.now() - startTime}ms. Found: ${!!user}`);
 
     if (!user) {

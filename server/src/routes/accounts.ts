@@ -10,16 +10,9 @@ const router = Router();
 // Base auth requirement for financial records
 router.use(requireAuth);
 
-// GET /api/accounts/stats - Financial overview statistics
+// GET /api/accounts/stats - Financial overview statistics (purely read-only)
 router.get('/stats', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    try {
-      await AutomationEngine.syncPaymentReminders();
-      await AutomationEngine.syncExpenseReminders();
-    } catch (e) {
-      console.warn('Sync reminder warning:', e);
-    }
-
     const { clientId } = req.query;
     const paymentsWhere: any = clientId ? { clientId: clientId as string } : {};
     const expensesWhere: any = clientId ? { relatedClientId: clientId as string } : {};
@@ -83,15 +76,9 @@ router.get('/stats', async (req: AuthenticatedRequest, res: Response): Promise<v
   }
 });
 
-// GET /api/accounts/payments - Incoming payments list
+// GET /api/accounts/payments - Incoming payments list (purely read-only)
 router.get('/payments', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    try {
-      await AutomationEngine.syncPaymentReminders();
-    } catch (e) {
-      console.warn('Sync payment reminders warning in get payments:', e);
-    }
-
     const { status, clientId, responsibleUserId, search } = req.query;
 
     const where: any = {};
