@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -172,7 +173,12 @@ app.use('/api/export', exportRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
 // Serve static React client files in production
-const clientDistPath = path.resolve(__dirname, '../../client/dist');
+const clientDistCandidates = [
+  path.resolve(__dirname, '../../client/dist'),
+  path.resolve(process.cwd(), 'client/dist'),
+  path.resolve(__dirname, '../client/dist'),
+];
+const clientDistPath = clientDistCandidates.find((p) => fs.existsSync(p)) || clientDistCandidates[0];
 app.use(express.static(clientDistPath));
 
 // SPA fallback for non-API client routes
@@ -206,15 +212,5 @@ app.listen(PORT, () => {
     } catch (dbErr) {
       console.error('Initial database setup notice:', dbErr);
     }
-
-    // Delayed automation engine startup
-    setTimeout(() => {
-      AutomationEngine.syncPaymentReminders().catch((err) =>
-        console.error('Payment reminder sync warning:', err)
-      );
-      AutomationEngine.syncLeadFollowUps().catch((err) =>
-        console.error('Lead followup sync warning:', err)
-      );
-    }, 4000);
   })();
 });
