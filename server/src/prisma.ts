@@ -68,6 +68,7 @@ export async function connectDatabase(): Promise<boolean> {
     } catch (jErr) {
       console.warn('SQLite journal mode fallback notice:', jErr);
     }
+
     console.log(`⚡ Prisma connected (SQLite Journal Mode: TRUNCATE, Busy Timeout: 5000ms) in ${Date.now() - start}ms`);
     return true;
   } catch (err) {

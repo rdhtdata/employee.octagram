@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext.js';
 import { useNotification } from '../../context/NotificationContext.js';
 import { api } from '../../services/api.js';
@@ -157,14 +157,14 @@ export const CRMPage: React.FC<CRMPageProps> = ({
         params.sortOrder = sortOrder;
       }
 
-      const [leadsRes, pipelineRes] = await Promise.all([
-        api.leads.list(params),
-        api.leads.getPipeline(),
-      ]);
-
-      setLeads(leadsRes.leads || []);
-      setPipelineData(pipelineRes.pipeline || {});
-      if (pipelineRes.stages) setStages(pipelineRes.stages);
+      if (viewMode === 'pipeline') {
+        const pipelineRes = await api.leads.getPipeline();
+        setPipelineData(pipelineRes.pipeline || {});
+        if (pipelineRes.stages) setStages(pipelineRes.stages);
+      } else {
+        const leadsRes = await api.leads.list(params);
+        setLeads(leadsRes.leads || []);
+      }
 
       // If initialLeadId provided, select lead
       if (initialLeadId && !selectedLead) {
@@ -177,9 +177,23 @@ export const CRMPage: React.FC<CRMPageProps> = ({
     }
   };
 
+  const isFirstRender = useRef(true);
+
+  // Unified debounced data fetching: exactly 1 fetch on mount, 250ms debounce on search keystrokes
   useEffect(() => {
-    fetchCRMData();
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      fetchCRMData();
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      fetchCRMData();
+    }, searchQuery ? 250 : 0);
+
+    return () => clearTimeout(timer);
   }, [
+    viewMode,
     statusFilter,
     assignedFilter,
     industryFilter,
@@ -190,14 +204,8 @@ export const CRMPage: React.FC<CRMPageProps> = ({
     hasPhoneOnly,
     sortField,
     sortOrder,
+    searchQuery,
   ]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchCRMData();
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
 
   useEffect(() => {
     api.users.list().then(res => setUsersList(res.users || [])).catch(() => {});

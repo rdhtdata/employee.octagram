@@ -34,6 +34,16 @@ app.set('trust proxy', 1);
 // Immediate bot/scanner drop before routing
 app.use(botAndScannerBlocker);
 
+// Immediate 301 canonical redirect for www.operations.octagramai.com to prevent socket hangs
+app.use((req, res, next) => {
+  const host = (req.headers.host || '').toLowerCase();
+  if (host.startsWith('www.operations.octagramai.com')) {
+    const proto = req.headers['x-forwarded-proto'] || 'https';
+    return res.redirect(301, `${proto}://operations.octagramai.com${req.originalUrl || req.url}`);
+  }
+  next();
+});
+
 const rawPort = process.env.PORT || 5001;
 const PORT = isNaN(Number(rawPort)) ? rawPort : Number(rawPort);
 
@@ -198,7 +208,7 @@ app.use(errorHandler);
 
 import { connectDatabase } from './prisma.js';
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`⚡ Octagram Hub API Server running on port: ${PORT}`);
   console.log(`📡 Healthcheck: http://localhost:${PORT}/api/health`);
 
@@ -214,3 +224,8 @@ app.listen(PORT, () => {
     }
   })();
 });
+
+// Configure robust HTTP timeouts to prevent crawler/bot socket hangs on Passenger/Hostinger
+server.keepAliveTimeout = 5000;  // 5s max idle keep-alive (frees up worker process slots immediately)
+server.headersTimeout = 8000;    // 8s headers receive timeout
+server.requestTimeout = 30000;   // 30s request execution timeout

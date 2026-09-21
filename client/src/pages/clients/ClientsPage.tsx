@@ -60,16 +60,21 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({ onNavigate }) => {
     }
   };
 
-  useEffect(() => {
-    fetchClients();
-  }, [statusFilter, industryFilter, managerFilter]);
+  const isFirstRender = React.useRef(true);
 
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      fetchClients();
+      return;
+    }
+
     const timer = setTimeout(() => {
       fetchClients();
-    }, 250);
+    }, searchQuery ? 250 : 0);
+
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [statusFilter, industryFilter, managerFilter, searchQuery]);
 
   useEffect(() => {
     api.users.list().then(res => setUsersList(res.users || [])).catch(() => {});

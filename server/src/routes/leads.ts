@@ -512,6 +512,7 @@ router.post('/:id/convert', requireAuth, async (req: AuthenticatedRequest, res: 
 
 // POST /api/leads/import/preview - Multi-file upload preview and duplicate detection
 router.post('/import/preview', requireAuth, importLimiter, upload.array('files', 10), async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const reqStart = Date.now();
   try {
     const files = req.files as Express.Multer.File[];
     if (!files || files.length === 0) {
@@ -519,6 +520,8 @@ router.post('/import/preview', requireAuth, importLimiter, upload.array('files',
       return;
     }
 
+    console.log(`📥 [IMPORT-PREVIEW] Received ${files.length} file(s) for preview processing.`);
+    const parseStart = Date.now();
     let allNormalized: NormalizedLead[] = [];
     const parseErrors: { file: string; row: number; reason: string }[] = [];
 
@@ -533,9 +536,17 @@ router.post('/import/preview', requireAuth, importLimiter, upload.array('files',
         parseErrors.push({ file: safeFileName, row: 0, reason: `Failed to parse file: ${err.message}` });
       }
     }
+    const parseDuration = Date.now() - parseStart;
+    console.log(`📊 [IMPORT-PREVIEW] Parsed ${allNormalized.length} row(s) with ${parseErrors.length} error(s) in ${parseDuration}ms`);
 
     // Check duplicates against existing database leads
+    const dupStart = Date.now();
     const { unique, duplicates } = await LeadParserService.checkDuplicates(allNormalized);
+    const dupDuration = Date.now() - dupStart;
+    console.log(`🔍 [IMPORT-PREVIEW] Deduplication found ${unique.length} new lead(s) and ${duplicates.length} duplicate(s) in ${dupDuration}ms`);
+
+    const totalDuration = Date.now() - reqStart;
+    console.log(`⚡ [IMPORT-PREVIEW] Total preview generated in ${totalDuration}ms`);
 
     res.json({
       summary: {
@@ -557,6 +568,7 @@ router.post('/import/preview', requireAuth, importLimiter, upload.array('files',
 
 // POST /api/leads/import/confirm - Batch import with duplicate resolution
 router.post('/import/confirm', requireAuth, importLimiter, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const reqStart = Date.now();
   try {
     const { uniqueLeads, resolvedDuplicates, assignedUserId } = req.body;
 
@@ -628,31 +640,35 @@ router.post('/import/confirm', requireAuth, importLimiter, async (req: Authentic
       }
     }
 
-    // 3. Batch insert leads in chunks of 100 for maximum SQLite performance
-    const BATCH_SIZE = 100;
-    for (let i = 0; i < leadsToInsert.length; i += BATCH_SIZE) {
-      const chunk = leadsToInsert.slice(i, i + BATCH_SIZE);
-      await prisma.lead.createMany({
-        data: chunk,
-      });
-      importedCount += chunk.length;
-    }
+    // 3. Execute all writes inside a single atomic SQLite transaction
+    // This holds the lock for milliseconds instead of sequential per-chunk lock churning
+    console.log(`💾 [IMPORT-CONFIRM] Starting atomic import transaction: ${leadsToInsert.length} inserts, ${mergeUpdates.length} merges, ${skippedCount} skipped`);
+    const txStart = Date.now();
 
-    // 4. Batch process merge updates in chunks
-    if (mergeUpdates.length > 0) {
-      const existingIds = mergeUpdates.map(m => m.existingId);
-      const existingRecords = await prisma.lead.findMany({
-        where: { id: { in: existingIds } },
-        select: { id: true, category: true, industry: true, contactName: true, phone: true, email: true, websiteStatus: true, websiteUrl: true, address: true, googleMapsUrl: true, notes: true },
-      });
-      const existingMap = new Map(existingRecords.map(r => [r.id, r]));
+    await prisma.$transaction(async (tx) => {
+      // Insert in chunks of 100
+      const BATCH_SIZE = 100;
+      for (let i = 0; i < leadsToInsert.length; i += BATCH_SIZE) {
+        const chunk = leadsToInsert.slice(i, i + BATCH_SIZE);
+        await tx.lead.createMany({
+          data: chunk,
+        });
+        importedCount += chunk.length;
+      }
 
-      const updateOperations: any[] = [];
-      for (const { existingId, incoming } of mergeUpdates) {
-        const existing = existingMap.get(existingId);
-        if (existing) {
-          updateOperations.push(
-            prisma.lead.update({
+      // Process merge updates
+      if (mergeUpdates.length > 0) {
+        const existingIds = mergeUpdates.map(m => m.existingId);
+        const existingRecords = await tx.lead.findMany({
+          where: { id: { in: existingIds } },
+          select: { id: true, category: true, industry: true, contactName: true, phone: true, email: true, websiteStatus: true, websiteUrl: true, address: true, googleMapsUrl: true, notes: true },
+        });
+        const existingMap = new Map(existingRecords.map(r => [r.id, r]));
+
+        for (const { existingId, incoming } of mergeUpdates) {
+          const existing = existingMap.get(existingId);
+          if (existing) {
+            await tx.lead.update({
               where: { id: existingId },
               data: {
                 category: existing.category || incoming.category || null,
@@ -666,25 +682,22 @@ router.post('/import/confirm', requireAuth, importLimiter, async (req: Authentic
                 googleMapsUrl: existing.googleMapsUrl || incoming.googleMapsUrl || null,
                 notes: existing.notes ? `${existing.notes}\n[Merged info from import: ${incoming.notes || ''}]` : incoming.notes,
               }
-            })
-          );
+            });
+            mergedCount++;
+          }
         }
       }
+    }, { timeout: 30000 });
 
-      // Execute updates in transactions of 50
-      for (let i = 0; i < updateOperations.length; i += 50) {
-        const chunk = updateOperations.slice(i, i + 50);
-        await prisma.$transaction(chunk);
-        mergedCount += chunk.length;
-      }
-    }
+    const txDuration = Date.now() - txStart;
+    console.log(`✅ [IMPORT-CONFIRM] Transaction committed in ${txDuration}ms. Total duration: ${Date.now() - reqStart}ms`);
 
-    await logActivity({
+    logActivity({
       userId: currentUserId,
       action: 'IMPORT',
       entityType: 'LEAD',
       details: { imported: importedCount, merged: mergedCount, skipped: skippedCount }
-    });
+    }).catch(e => console.warn('Import activity log warning:', e));
 
     res.json({
       success: true,

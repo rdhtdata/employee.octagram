@@ -2,37 +2,15 @@ import { Router, Response } from 'express';
 import { prisma } from '../prisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { AuthenticatedRequest } from '../types/index.js';
-import { AutomationEngine } from '../services/automation.js';
 
 const router = Router();
 
-let lastSyncTime = 0;
-let isSyncing = false;
-const SYNC_THROTTLE_MS = 30 * 60 * 1000; // Strongly throttled: max once every 30 minutes
-
-// GET /api/dashboard - Personalized operations hub dashboard (read-only with throttled background sync guard)
+// GET /api/dashboard - Personalized operations hub dashboard (100% read-only)
 router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const currentUserId = req.user!.userId;
     const isAdmin = req.user!.role === 'ADMIN' || req.user!.role === 'DEV';
     const isSales = req.user!.role === 'SALES';
-
-    // Strongly throttled, non-blocking on-demand sync with mutex guard to prevent concurrent execution
-    const nowMs = Date.now();
-    if (!isSyncing && (nowMs - lastSyncTime > SYNC_THROTTLE_MS)) {
-      isSyncing = true;
-      lastSyncTime = nowMs;
-      (async () => {
-        try {
-          await AutomationEngine.syncPaymentReminders();
-          await AutomationEngine.syncLeadFollowUps();
-        } catch (e) {
-          console.warn('Auto-sync notice in dashboard:', e);
-        } finally {
-          isSyncing = false;
-        }
-      })();
-    }
 
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());

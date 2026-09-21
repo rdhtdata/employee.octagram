@@ -39,10 +39,12 @@ Thumbs.db
 *.db-journal
 *.db-wal
 *.db-shm
+*.backup*
 server/prisma/*.db
 server/prisma/*.db-journal
 server/prisma/*.db-wal
 server/prisma/*.db-shm
+server/prisma/*.backup*
 
 # Temporary uploads
 uploads/
