@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext.js';
 import { useNotification } from '../../context/NotificationContext.js';
 import { api } from '../../services/api.js';
-import { Payment, Expense, Client } from '../../types/index.js';
+import { Payment, Expense, Client, User } from '../../types/index.js';
 import { StatusBadge } from '../../components/common/Badge.js';
 import { Button } from '../../components/common/Button.js';
 import { Tabs } from '../../components/common/Tabs.js';
 import { Modal } from '../../components/common/Modal.js';
 import { EmptyState } from '../../components/common/EmptyState.js';
 import { TableSkeleton } from '../../components/common/Skeleton.js';
+import { PaymentEditModal } from '../../components/finance/PaymentEditModal.js';
+import { ExpenseEditModal } from '../../components/finance/ExpenseEditModal.js';
 import {
   Wallet,
   ArrowDownLeft,
@@ -25,6 +27,8 @@ import {
   Download,
   Repeat,
   Coins,
+  Edit3,
+  Trash2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -45,7 +49,14 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
   const [payments, setPayments] = useState<Payment[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [clientsList, setClientsList] = useState<Client[]>([]);
+  const [usersList, setUsersList] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Edit Modals State
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+  const [isPaymentEditOpen, setIsPaymentEditOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [isExpenseEditOpen, setIsExpenseEditOpen] = useState(false);
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -85,17 +96,19 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
     if (!isAdmin) return;
     try {
       setIsLoading(true);
-      const [statsRes, paymentsRes, expensesRes, clientsRes] = await Promise.all([
+      const [statsRes, paymentsRes, expensesRes, clientsRes, usersRes] = await Promise.all([
         api.accounts.getStats(),
         api.accounts.getPayments({ status: statusFilter !== 'ALL' ? statusFilter : '', search: searchQuery }),
         api.accounts.getExpenses({ search: searchQuery }),
         api.clients.list(),
+        api.users.list().catch(() => ({ users: [] })),
       ]);
 
       setStats(statsRes);
       setPayments(paymentsRes.payments || []);
       setExpenses(expensesRes.expenses || []);
       setClientsList(clientsRes.clients || []);
+      setUsersList(usersRes.users || []);
     } catch (err: any) {
       showToast('Failed to load accounts information', 'error');
     } finally {
@@ -114,20 +127,40 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const handleMarkPaymentPaid = async (paymentId: string) => {
+  const handleTogglePaymentPaid = async (payment: Payment) => {
+    const isCurrentlyPaid = payment.status === 'PAID';
+    const newStatus = isCurrentlyPaid ? 'UPCOMING' : 'PAID';
     try {
-      await api.accounts.updatePayment(paymentId, { status: 'PAID' });
-      showToast('Payment marked as PAID & reminder task resolved', 'success');
+      await api.accounts.updatePayment(payment.id, {
+        status: newStatus,
+        paymentDate: isCurrentlyPaid ? null : new Date().toISOString().split('T')[0],
+      });
+      showToast(
+        isCurrentlyPaid
+          ? 'Payment marked as unpaid & reminder tasks reopened'
+          : 'Payment marked as PAID & reminder tasks completed',
+        'success'
+      );
       fetchAccountsData();
     } catch (err) {
       showToast('Failed to update payment status', 'error');
     }
   };
 
-  const handleMarkExpensePaid = async (expenseId: string) => {
+  const handleToggleExpensePaid = async (expense: Expense) => {
+    const isCurrentlyPaid = expense.status === 'PAID';
+    const newStatus = isCurrentlyPaid ? 'UPCOMING' : 'PAID';
     try {
-      await api.accounts.updateExpense(expenseId, { status: 'PAID' });
-      showToast('Expense marked as PAID & next cycle updated', 'success');
+      await api.accounts.updateExpense(expense.id, {
+        status: newStatus,
+        paymentDate: isCurrentlyPaid ? null : new Date().toISOString().split('T')[0],
+      });
+      showToast(
+        isCurrentlyPaid
+          ? 'Expense marked as unpaid'
+          : 'Expense marked as PAID & next cycle updated',
+        'success'
+      );
       fetchAccountsData();
     } catch (err) {
       showToast('Failed to update expense status', 'error');
@@ -390,22 +423,51 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
                         {p.responsibleUser?.name || 'Unassigned'}
                       </td>
                       <td className="px-4 py-3">
-                        <StatusBadge status={p.status} size="xs" />
-                      </td>
-                      <td className="px-4 py-3">
-                        {p.status !== 'PAID' ? (
-                          <Button
-                            variant="subtle"
-                            size="xs"
-                            onClick={() => handleMarkPaymentPaid(p.id)}
+                        <div className="flex items-center gap-1.5">
+                          {p.status !== 'PAID' ? (
+                            <Button
+                              variant="subtle"
+                              size="xs"
+                              onClick={() => handleTogglePaymentPaid(p)}
+                              icon={<CheckCircle2 className="w-3 h-3 text-emerald-400" />}
+                            >
+                              Mark Paid
+                            </Button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleTogglePaymentPaid(p)}
+                              className="text-[11px] text-emerald-400 hover:text-amber-300 hover:bg-zinc-800 px-2 py-0.5 rounded border border-emerald-900/60 transition-colors flex items-center gap-1 font-medium cursor-pointer"
+                              title="Click to uncheck / mark as unpaid"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Paid</span>
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingPayment(p);
+                              setIsPaymentEditOpen(true);
+                            }}
+                            className="p-1 text-zinc-400 hover:text-sky-400 hover:bg-zinc-800 rounded transition-colors cursor-pointer"
+                            title="Modify Payment & Dates"
                           >
-                            Mark Paid
-                          </Button>
-                        ) : (
-                          <span className="text-[11px] text-emerald-400 flex items-center gap-1 font-medium">
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Paid
-                          </span>
-                        )}
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingPayment(p);
+                              setIsPaymentEditOpen(true);
+                            }}
+                            className="p-1 text-zinc-400 hover:text-rose-400 hover:bg-zinc-800 rounded transition-colors cursor-pointer"
+                            title="Delete Payment"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -514,13 +576,38 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <Button
-                            variant="subtle"
-                            size="xs"
-                            onClick={() => handleMarkPaymentPaid(p.id)}
-                          >
-                            Mark Paid
-                          </Button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              variant="subtle"
+                              size="xs"
+                              onClick={() => handleTogglePaymentPaid(p)}
+                              icon={<CheckCircle2 className="w-3 h-3 text-emerald-400" />}
+                            >
+                              Mark Paid
+                            </Button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingPayment(p);
+                                setIsPaymentEditOpen(true);
+                              }}
+                              className="p-1 text-zinc-400 hover:text-sky-400 hover:bg-zinc-800 rounded transition-colors cursor-pointer"
+                              title="Modify Payment & Dates"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingPayment(p);
+                                setIsPaymentEditOpen(true);
+                              }}
+                              className="p-1 text-zinc-400 hover:text-rose-400 hover:bg-zinc-800 rounded transition-colors cursor-pointer"
+                              title="Delete Payment"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -550,17 +637,17 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
           </div>
 
           {isLoading ? (
-            <TableSkeleton rows={4} cols={5} />
+            <TableSkeleton rows={5} cols={6} />
           ) : expenses.length === 0 ? (
             <EmptyState
-              title="No expenses recorded"
-              description="Track hosting, software seats, domains, and contractor payouts."
+              title="No expenses logged"
+              description="Record recurring software licenses, domain renewals, or contractor payouts."
               actionLabel="Add Expense"
               onAction={() => setIsExpenseModalOpen(true)}
             />
           ) : (
             <div className="bg-zinc-900/30 border border-zinc-850 rounded-xl overflow-x-auto touch-pan-x">
-              <table className="w-full text-left text-xs min-w-[700px]">
+              <table className="w-full text-left text-xs min-w-[640px]">
                 <thead className="bg-zinc-900/80 border-b border-zinc-800 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
                   <tr>
                     <th className="px-4 py-3">Vendor / Service</th>
@@ -570,23 +657,26 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
                     <th className="px-4 py-3">Schedule</th>
                     <th className="px-4 py-3">Due Date</th>
                     <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Action</th>
+                    <th className="px-4 py-3 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-850">
                   {expenses.map((e) => (
                     <tr key={e.id} className="hover:bg-zinc-850/40 transition-colors">
                       <td className="px-4 py-3 font-semibold text-zinc-100">
-                        {e.vendor}
+                        <div>{e.vendor}</div>
+                        {e.notes && <div className="text-[10px] text-zinc-500 font-sans truncate max-w-xs">{e.notes}</div>}
                       </td>
-                      <td className="px-4 py-3 font-mono text-[11px] text-zinc-400">
-                        {e.category}
+                      <td className="px-4 py-3">
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-750">
+                          {e.category}
+                        </span>
                       </td>
                       <td className="px-4 py-3">
                         {e.client ? (
                           <span
                             onClick={() => onNavigate(`/clients/${e.relatedClientId}?tab=finances`)}
-                            className="text-zinc-300 hover:text-emerald-400 cursor-pointer font-medium"
+                            className="text-zinc-300 hover:text-emerald-400 cursor-pointer"
                           >
                             {e.client.name}
                           </span>
@@ -614,20 +704,52 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
                       <td className="px-4 py-3">
                         <StatusBadge status={e.status} size="xs" />
                       </td>
-                      <td className="px-4 py-3">
-                        {e.status !== 'PAID' ? (
-                          <Button
-                            variant="subtle"
-                            size="xs"
-                            onClick={() => handleMarkExpensePaid(e.id)}
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {e.status !== 'PAID' ? (
+                            <Button
+                              variant="subtle"
+                              size="xs"
+                              onClick={() => handleToggleExpensePaid(e)}
+                              icon={<CheckCircle2 className="w-3 h-3 text-emerald-400" />}
+                            >
+                              Mark Paid
+                            </Button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleExpensePaid(e)}
+                              className="text-[11px] text-emerald-400 hover:text-amber-300 hover:bg-zinc-800 px-2 py-0.5 rounded border border-emerald-900/60 transition-colors flex items-center gap-1 font-medium cursor-pointer"
+                              title="Click to uncheck / mark as unpaid"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Paid</span>
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingExpense(e);
+                              setIsExpenseEditOpen(true);
+                            }}
+                            className="p-1 text-zinc-400 hover:text-sky-400 hover:bg-zinc-800 rounded transition-colors cursor-pointer"
+                            title="Modify Expense & Dates"
                           >
-                            Mark Paid
-                          </Button>
-                        ) : (
-                          <span className="text-[11px] text-emerald-400 flex items-center gap-1 font-medium">
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Paid
-                          </span>
-                        )}
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingExpense(e);
+                              setIsExpenseEditOpen(true);
+                            }}
+                            className="p-1 text-zinc-400 hover:text-rose-400 hover:bg-zinc-800 rounded transition-colors cursor-pointer"
+                            title="Delete Expense"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -851,6 +973,33 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
           </div>
         </form>
       </Modal>
+
+      {/* Edit Payment Modal */}
+      <PaymentEditModal
+        isOpen={isPaymentEditOpen}
+        onClose={() => {
+          setIsPaymentEditOpen(false);
+          setEditingPayment(null);
+        }}
+        onSuccess={fetchAccountsData}
+        onDeleteSuccess={fetchAccountsData}
+        payment={editingPayment}
+        usersList={usersList}
+      />
+
+      {/* Edit Expense Modal */}
+      <ExpenseEditModal
+        isOpen={isExpenseEditOpen}
+        onClose={() => {
+          setIsExpenseEditOpen(false);
+          setEditingExpense(null);
+        }}
+        onSuccess={fetchAccountsData}
+        onDeleteSuccess={fetchAccountsData}
+        expense={editingExpense}
+        usersList={usersList}
+        clientsList={clientsList}
+      />
     </div>
   );
 };

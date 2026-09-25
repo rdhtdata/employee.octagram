@@ -231,7 +231,7 @@ router.get('/meta/facets', requireAuth, async (req: AuthenticatedRequest, res: R
 // GET /api/leads/pipeline - Grouped leads for Kanban board
 router.get('/pipeline', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const stages = ['NEW', 'CONTACTED', 'ENGAGED', 'QUALIFIED', 'PROPOSAL', 'NEGOTIATION', 'WON', 'LOST'];
+    const stages = ['NEW', 'CONTACTED', 'DEMO_DISCOVERY', 'ENGAGED', 'NEGOTIATION', 'WON', 'LOST'];
     const leads = await prisma.lead.findMany({
       include: {
         assignedUser: { select: { id: true, name: true, avatarUrl: true } },
@@ -248,6 +248,77 @@ router.get('/pipeline', requireAuth, async (req: AuthenticatedRequest, res: Resp
     res.json({ pipeline, stages });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch pipeline.' });
+  }
+});
+
+// POST /api/leads/bulk-reassign - Reassign sales rep for selected leads or all leads of a specific rep
+router.post('/bulk-reassign', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { leadIds, fromUserId, targetUserId, crmStatus } = req.body;
+
+    const whereClause: any = {};
+
+    if (Array.isArray(leadIds) && leadIds.length > 0) {
+      whereClause.id = { in: leadIds };
+    } else if (fromUserId !== undefined && fromUserId !== '') {
+      if (fromUserId === 'UNASSIGNED' || fromUserId === null) {
+        whereClause.assignedUserId = null;
+      } else if (fromUserId === 'ALL') {
+        // match all leads regardless of rep
+      } else {
+        whereClause.assignedUserId = fromUserId;
+      }
+
+      if (crmStatus && crmStatus !== 'ALL') {
+        whereClause.crmStatus = crmStatus;
+      }
+    } else {
+      res.status(400).json({ error: 'Please specify leadIds or a source sales rep (fromUserId).' });
+      return;
+    }
+
+    // Determine target assignee: null for 'UNASSIGNED' / null, or valid user id
+    const newAssignedUserId = (targetUserId === 'UNASSIGNED' || !targetUserId) ? null : targetUserId;
+
+    if (newAssignedUserId) {
+      const targetUser = await prisma.user.findUnique({
+        where: { id: newAssignedUserId },
+        select: { id: true, name: true }
+      });
+      if (!targetUser) {
+        res.status(400).json({ error: 'Selected target sales rep does not exist.' });
+        return;
+      }
+    }
+
+    const result = await prisma.lead.updateMany({
+      where: whereClause,
+      data: {
+        assignedUserId: newAssignedUserId,
+      },
+    });
+
+    logActivity({
+      userId: req.user!.userId,
+      action: 'UPDATE',
+      entityType: 'LEAD',
+      details: {
+        action: 'BULK_REASSIGN',
+        count: result.count,
+        fromUserId: fromUserId || null,
+        targetUserId: newAssignedUserId,
+        selectedLeadCount: Array.isArray(leadIds) ? leadIds.length : undefined,
+      },
+    }).catch((e) => console.warn('Bulk reassign audit log warning:', e));
+
+    res.json({
+      success: true,
+      count: result.count,
+      message: `Successfully reassigned ${result.count} lead${result.count === 1 ? '' : 's'}.`,
+    });
+  } catch (error) {
+    console.error('Bulk reassign error:', error);
+    res.status(500).json({ error: 'Failed to reassign leads.' });
   }
 });
 

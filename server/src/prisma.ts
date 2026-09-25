@@ -7,25 +7,77 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-function getDbUrl(): string {
+import os from 'os';
+
+export function getPersistentDbPath(): string {
+  // 1. Explicit DATABASE_URL if absolute file path provided
+  const envUrl = process.env.DATABASE_URL;
+  if (envUrl && envUrl.startsWith('file:')) {
+    const rawPath = envUrl.replace(/^file:/, '').split('?')[0];
+    if (path.isAbsolute(rawPath)) {
+      return rawPath;
+    }
+  }
+
+  // 2. Explicit custom data directory
+  if (process.env.OCTAGRAM_DATA_DIR) {
+    return path.resolve(process.env.OCTAGRAM_DATA_DIR, 'production.db');
+  }
+
+  // 3. Production or Linux / Hostinger environment -> Persistent home directory (~/.octagram_data/)
+  const isProduction = process.env.NODE_ENV === 'production' || process.platform === 'linux';
+  if (isProduction) {
+    try {
+      const prodDir = path.join(os.homedir(), '.octagram_data');
+      if (!fs.existsSync(prodDir)) {
+        fs.mkdirSync(prodDir, { recursive: true });
+      }
+      const prodDb = path.join(prodDir, 'production.db');
+      const devDbInHome = path.join(prodDir, 'dev.db');
+      if (fs.existsSync(prodDb)) return prodDb;
+      if (fs.existsSync(devDbInHome)) return devDbInHome;
+      return prodDb;
+    } catch (e) {
+      console.warn('Persistent home directory inaccessible, falling back to local storage:', e);
+    }
+  }
+
+  // 4. Local Development: check repo locations
+  const candidate1 = path.resolve(__dirname, '../prisma/dev.db');
+  const candidate2 = path.resolve(process.cwd(), 'server/prisma/dev.db');
+  const candidate3 = path.resolve(process.cwd(), 'prisma/dev.db');
+  const candidate4 = path.resolve(__dirname, '../../server/prisma/dev.db');
+  const candidate5 = path.resolve(process.cwd(), 'dev.db');
+
+  return [candidate1, candidate2, candidate3, candidate4, candidate5].find((p) => fs.existsSync(p)) || candidate1;
+}
+
+export function getDbUrl(): string {
   let url = process.env.DATABASE_URL;
 
-  if (!url || !url.startsWith('file:') || url.includes('./')) {
-    // Locate the actual SQLite database file generated during build
-    const candidate1 = path.resolve(__dirname, '../prisma/dev.db');
-    const candidate2 = path.resolve(process.cwd(), 'server/prisma/dev.db');
-    const candidate3 = path.resolve(process.cwd(), 'prisma/dev.db');
-    const candidate4 = path.resolve(__dirname, '../../server/prisma/dev.db');
-    const candidate5 = path.resolve(process.cwd(), 'dev.db');
-
-    const targetDbPath = [candidate1, candidate2, candidate3, candidate4, candidate5].find((p) => fs.existsSync(p)) || candidate1;
-
-    const parentDir = path.dirname(targetDbPath);
+  if (url && url.startsWith('file:') && !url.includes('./')) {
+    // Custom absolute SQLite path provided - ensure parent directory exists
+    const cleanPath = url.replace('file:', '').split('?')[0];
+    const parentDir = path.dirname(cleanPath);
     if (!fs.existsSync(parentDir)) {
       try {
         fs.mkdirSync(parentDir, { recursive: true });
       } catch (e) {
-        console.warn('Could not create DB parent directory:', e);
+        console.warn('Could not create custom DB parent directory:', e);
+      }
+    }
+  } else if (!url || !url.startsWith('file:') || url.includes('./')) {
+    let targetDbPath = getPersistentDbPath();
+    let parentDir = path.dirname(targetDbPath);
+    try {
+      if (!fs.existsSync(parentDir)) {
+        fs.mkdirSync(parentDir, { recursive: true });
+      }
+    } catch (e) {
+      targetDbPath = path.resolve(__dirname, '../prisma/dev.db');
+      parentDir = path.dirname(targetDbPath);
+      if (!fs.existsSync(parentDir)) {
+        fs.mkdirSync(parentDir, { recursive: true });
       }
     }
 

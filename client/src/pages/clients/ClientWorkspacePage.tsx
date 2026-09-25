@@ -10,6 +10,8 @@ import { Tabs } from '../../components/common/Tabs.js';
 import { Modal } from '../../components/common/Modal.js';
 import { EmptyState } from '../../components/common/EmptyState.js';
 import { TableSkeleton } from '../../components/common/Skeleton.js';
+import { PaymentEditModal } from '../../components/finance/PaymentEditModal.js';
+import { ExpenseEditModal } from '../../components/finance/ExpenseEditModal.js';
 import {
   Building2,
   Phone,
@@ -30,6 +32,7 @@ import {
   ArrowLeft,
   Pin,
   Edit3,
+  Trash2,
   UserCheck,
   TrendingUp,
   TrendingDown,
@@ -114,6 +117,12 @@ export const ClientWorkspacePage: React.FC<ClientWorkspacePageProps> = ({
   // Financial Sub-tab filter
   const [financeView, setFinanceView] = useState<'ALL' | 'INCOME' | 'EXPENSES'>('ALL');
 
+  // Edit Payment & Expense Modal State
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+  const [isPaymentEditOpen, setIsPaymentEditOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<any | null>(null);
+  const [isExpenseEditOpen, setIsExpenseEditOpen] = useState(false);
+
   const fetchClientWorkspace = async () => {
     try {
       setIsLoading(true);
@@ -135,7 +144,7 @@ export const ClientWorkspacePage: React.FC<ClientWorkspacePageProps> = ({
     try {
       setIsUpdatingManager(true);
       const res = await api.clients.update(client.id, {
-        accountManagerId: newManagerId === 'UNASSIGNED' ? 'UNASSIGNED' : newManagerId
+        accountManagerId: newManagerId === 'UNASSIGNED' ? null : newManagerId
       });
       setClient((prev) => prev ? { ...prev, ...res.client } : res.client);
       const managerName = res.client.accountManager?.name || 'Unassigned';
@@ -155,7 +164,7 @@ export const ClientWorkspacePage: React.FC<ClientWorkspacePageProps> = ({
         name: editFormData.name.trim(),
         industry: editFormData.industry.trim() || null,
         status: editFormData.status,
-        accountManagerId: editFormData.accountManagerId,
+        accountManagerId: editFormData.accountManagerId === 'UNASSIGNED' ? null : editFormData.accountManagerId,
         phone: editFormData.phone.trim() || null,
         email: editFormData.email.trim() || null,
         website: editFormData.website.trim() || null,
@@ -180,20 +189,40 @@ export const ClientWorkspacePage: React.FC<ClientWorkspacePageProps> = ({
     }
   };
 
-  const handleMarkPaymentPaid = async (paymentId: string) => {
+  const handleTogglePaymentPaid = async (payment: Payment) => {
+    const isCurrentlyPaid = payment.status === 'PAID';
+    const newStatus = isCurrentlyPaid ? 'UPCOMING' : 'PAID';
     try {
-      await api.accounts.updatePayment(paymentId, { status: 'PAID' });
-      showToast('Payment marked as PAID (recurring cycle synchronized if active)', 'success');
+      await api.accounts.updatePayment(payment.id, {
+        status: newStatus,
+        paymentDate: isCurrentlyPaid ? null : new Date().toISOString().split('T')[0],
+      });
+      showToast(
+        isCurrentlyPaid
+          ? 'Payment marked as unpaid & reminder tasks reopened'
+          : 'Payment marked as PAID (recurring cycle synchronized if active)',
+        'success'
+      );
       fetchClientWorkspace();
     } catch (err: any) {
       showToast(err.message || 'Failed to update payment status', 'error');
     }
   };
 
-  const handleMarkExpensePaid = async (expenseId: string) => {
+  const handleToggleExpensePaid = async (expense: any) => {
+    const isCurrentlyPaid = expense.status === 'PAID';
+    const newStatus = isCurrentlyPaid ? 'UPCOMING' : 'PAID';
     try {
-      await api.accounts.updateExpense(expenseId, { status: 'PAID' });
-      showToast('Expense marked as PAID (recurring cycle synchronized if active)', 'success');
+      await api.accounts.updateExpense(expense.id, {
+        status: newStatus,
+        paymentDate: isCurrentlyPaid ? null : new Date().toISOString().split('T')[0],
+      });
+      showToast(
+        isCurrentlyPaid
+          ? 'Expense marked as unpaid'
+          : 'Expense marked as PAID (recurring cycle synchronized if active)',
+        'success'
+      );
       fetchClientWorkspace();
     } catch (err: any) {
       showToast(err.message || 'Failed to update expense status', 'error');
@@ -745,13 +774,51 @@ export const ClientWorkspacePage: React.FC<ClientWorkspacePageProps> = ({
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <Button
-                            variant="subtle"
-                            size="xs"
-                            onClick={() => handleMarkPaymentPaid(payment.id)}
-                          >
-                            Mark Paid
-                          </Button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            {payment.status !== 'PAID' ? (
+                              <Button
+                                variant="subtle"
+                                size="xs"
+                                onClick={() => handleTogglePaymentPaid(payment)}
+                                icon={<CheckCircle2 className="w-3 h-3 text-emerald-400" />}
+                              >
+                                Mark Paid
+                              </Button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleTogglePaymentPaid(payment)}
+                                className="text-[11px] text-emerald-400 hover:text-amber-300 hover:bg-zinc-800 px-2 py-0.5 rounded border border-emerald-900/60 transition-colors flex items-center gap-1 font-medium cursor-pointer"
+                                title="Click to uncheck / mark as unpaid"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Paid</span>
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingPayment(payment);
+                                setIsPaymentEditOpen(true);
+                              }}
+                              className="p-1 text-zinc-400 hover:text-sky-400 hover:bg-zinc-800 rounded transition-colors cursor-pointer"
+                              title="Modify Payment & Dates"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingPayment(payment);
+                                setIsPaymentEditOpen(true);
+                              }}
+                              className="p-1 text-zinc-400 hover:text-rose-400 hover:bg-zinc-800 rounded transition-colors cursor-pointer"
+                              title="Delete Payment"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -953,19 +1020,51 @@ export const ClientWorkspacePage: React.FC<ClientWorkspacePageProps> = ({
                             <StatusBadge status={payment.status} size="xs" />
                           </td>
                           <td className="px-4 py-3 text-right">
-                            {payment.status !== 'PAID' ? (
-                              <Button
-                                variant="subtle"
-                                size="xs"
-                                onClick={() => handleMarkPaymentPaid(payment.id)}
+                            <div className="flex items-center justify-end gap-1.5">
+                              {payment.status !== 'PAID' ? (
+                                <Button
+                                  variant="subtle"
+                                  size="xs"
+                                  onClick={() => handleTogglePaymentPaid(payment)}
+                                  icon={<CheckCircle2 className="w-3 h-3 text-emerald-400" />}
+                                >
+                                  Mark Paid
+                                </Button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleTogglePaymentPaid(payment)}
+                                  className="text-[11px] text-emerald-400 hover:text-amber-300 hover:bg-zinc-800 px-2 py-0.5 rounded border border-emerald-900/60 transition-colors flex items-center gap-1 font-medium cursor-pointer"
+                                  title="Click to uncheck / mark as unpaid"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>Paid</span>
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingPayment(payment);
+                                  setIsPaymentEditOpen(true);
+                                }}
+                                className="p-1 text-zinc-400 hover:text-sky-400 hover:bg-zinc-800 rounded transition-colors cursor-pointer"
+                                title="Modify Payment & Dates"
                               >
-                                Mark Paid
-                              </Button>
-                            ) : (
-                              <span className="text-[11px] text-emerald-400 flex items-center justify-end gap-1 font-medium">
-                                <CheckCircle2 className="w-3.5 h-3.5" /> Paid
-                              </span>
-                            )}
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingPayment(payment);
+                                  setIsPaymentEditOpen(true);
+                                }}
+                                className="p-1 text-zinc-400 hover:text-rose-400 hover:bg-zinc-800 rounded transition-colors cursor-pointer"
+                                title="Delete Payment"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1033,19 +1132,51 @@ export const ClientWorkspacePage: React.FC<ClientWorkspacePageProps> = ({
                             <StatusBadge status={expense.status} size="xs" />
                           </td>
                           <td className="px-4 py-3 text-right">
-                            {expense.status !== 'PAID' ? (
-                              <Button
-                                variant="subtle"
-                                size="xs"
-                                onClick={() => handleMarkExpensePaid(expense.id)}
+                            <div className="flex items-center justify-end gap-1.5">
+                              {expense.status !== 'PAID' ? (
+                                <Button
+                                  variant="subtle"
+                                  size="xs"
+                                  onClick={() => handleToggleExpensePaid(expense)}
+                                  icon={<CheckCircle2 className="w-3 h-3 text-emerald-400" />}
+                                >
+                                  Mark Paid
+                                </Button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleExpensePaid(expense)}
+                                  className="text-[11px] text-emerald-400 hover:text-amber-300 hover:bg-zinc-800 px-2 py-0.5 rounded border border-emerald-900/60 transition-colors flex items-center gap-1 font-medium cursor-pointer"
+                                  title="Click to uncheck / mark as unpaid"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>Paid</span>
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingExpense(expense);
+                                  setIsExpenseEditOpen(true);
+                                }}
+                                className="p-1 text-zinc-400 hover:text-sky-400 hover:bg-zinc-800 rounded transition-colors cursor-pointer"
+                                title="Modify Expense & Dates"
                               >
-                                Mark Paid
-                              </Button>
-                            ) : (
-                              <span className="text-[11px] text-emerald-400 flex items-center justify-end gap-1 font-medium">
-                                <CheckCircle2 className="w-3.5 h-3.5" /> Paid
-                              </span>
-                            )}
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingExpense(expense);
+                                  setIsExpenseEditOpen(true);
+                                }}
+                                className="p-1 text-zinc-400 hover:text-rose-400 hover:bg-zinc-800 rounded transition-colors cursor-pointer"
+                                title="Delete Expense"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1578,6 +1709,32 @@ export const ClientWorkspacePage: React.FC<ClientWorkspacePageProps> = ({
           </div>
         </form>
       </Modal>
+
+      {/* Edit Payment Modal */}
+      <PaymentEditModal
+        isOpen={isPaymentEditOpen}
+        onClose={() => {
+          setIsPaymentEditOpen(false);
+          setEditingPayment(null);
+        }}
+        onSuccess={fetchClientWorkspace}
+        onDeleteSuccess={fetchClientWorkspace}
+        payment={editingPayment}
+        usersList={usersList}
+      />
+
+      {/* Edit Expense Modal */}
+      <ExpenseEditModal
+        isOpen={isExpenseEditOpen}
+        onClose={() => {
+          setIsExpenseEditOpen(false);
+          setEditingExpense(null);
+        }}
+        onSuccess={fetchClientWorkspace}
+        onDeleteSuccess={fetchClientWorkspace}
+        expense={editingExpense}
+        usersList={usersList}
+      />
     </div>
   );
 };

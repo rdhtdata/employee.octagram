@@ -207,10 +207,11 @@ router.patch('/payments/:id', async (req: AuthenticatedRequest, res: Response): 
       }
     });
 
-    // Handle payment status automations (mark reminder tasks completed & spawn next cycle if recurring)
+    // Handle payment status automations & task synchronization
     if (status) {
       await AutomationEngine.handlePaymentStatusChange(id, status);
     }
+    await AutomationEngine.syncPaymentTask(id);
 
     await logActivity({
       userId: req.user!.userId,
@@ -241,6 +242,14 @@ router.delete('/payments/:id', requireRole('ADMIN'), async (req: AuthenticatedRe
       return;
     }
 
+    // Clean up any automated payment reminder tasks linked to this payment
+    await prisma.task.deleteMany({
+      where: {
+        automatedType: 'PAYMENT_REMINDER',
+        description: { contains: id },
+      },
+    });
+
     await prisma.payment.delete({ where: { id } });
 
     await logActivity({
@@ -253,6 +262,7 @@ router.delete('/payments/:id', requireRole('ADMIN'), async (req: AuthenticatedRe
 
     res.json({ success: true, message: 'Payment deleted.' });
   } catch (error) {
+    console.error('Failed to delete payment:', error);
     res.status(500).json({ error: 'Failed to delete payment.' });
   }
 });

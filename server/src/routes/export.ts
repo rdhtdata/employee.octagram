@@ -160,4 +160,30 @@ router.get('/:entity', requireAuth, requireRole('ADMIN'), exportLimiter, async (
   }
 });
 
+import { createDatabaseBackup, listDatabaseBackups } from '../services/backup.js';
+
+// POST /api/export/backup - Trigger instant database backup snapshot (Admin only)
+router.post('/backup', requireAuth, requireRole('ADMIN'), async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const backup = createDatabaseBackup('manual');
+    if (!backup) {
+      res.status(500).json({ error: 'Failed to create database backup snapshot.' });
+      return;
+    }
+    res.json({ success: true, backup });
+  } catch (err) {
+    res.status(500).json({ error: 'Database backup failed.' });
+  }
+});
+
+// GET /api/export/backups - List existing database safety backups (Admin only)
+router.get('/backups', requireAuth, requireRole('ADMIN'), async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const backups = listDatabaseBackups();
+    res.json({ backups });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to list backups.' });
+  }
+});
+
 export default router;

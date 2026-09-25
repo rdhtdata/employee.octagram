@@ -363,7 +363,9 @@ export class LeadParserService {
       // 14. CRM Status (Strip "CRMStatus." prefix if present)
       let rawStatus = getVal(['crmstatus', 'status', 'stage', 'leadstatus', 'pipelinestage']) || 'NEW';
       rawStatus = rawStatus.replace(/^crmstatus\./i, '').toUpperCase().trim();
-      const validStatuses = ['NEW', 'CONTACTED', 'ENGAGED', 'QUALIFIED', 'PROPOSAL', 'NEGOTIATION', 'WON', 'LOST'];
+      if (rawStatus === 'QUALIFIED') rawStatus = 'DEMO_DISCOVERY';
+      if (rawStatus === 'PROPOSAL') rawStatus = 'NEGOTIATION';
+      const validStatuses = ['NEW', 'CONTACTED', 'DEMO_DISCOVERY', 'ENGAGED', 'NEGOTIATION', 'WON', 'LOST'];
       const crmStatus = validStatuses.includes(rawStatus) ? rawStatus : 'NEW';
 
       rows.push({

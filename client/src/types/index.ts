@@ -60,7 +60,7 @@ export interface TaskComment {
   author: { id: string; name: string; avatarUrl?: string | null };
 }
 
-export type LeadStatus = 'NEW' | 'CONTACTED' | 'ENGAGED' | 'QUALIFIED' | 'PROPOSAL' | 'NEGOTIATION' | 'WON' | 'LOST';
+export type LeadStatus = 'NEW' | 'CONTACTED' | 'DEMO_DISCOVERY' | 'ENGAGED' | 'NEGOTIATION' | 'WON' | 'LOST';
 
 export interface Lead {
   id: string;

@@ -115,7 +115,7 @@ model Lead {
   address          String?
   googleMapsUrl    String?
   leadScore        Int?      @default(50)
-  crmStatus        String    @default("NEW") // NEW | CONTACTED | ENGAGED | QUALIFIED | PROPOSAL | NEGOTIATION | WON | LOST
+  crmStatus        String    @default("NEW") // NEW | CONTACTED | DEMO_DISCOVERY | ENGAGED | NEGOTIATION | WON | LOST
   assignedUserId   String?
   convertedClientId String?  @unique
   nextFollowUpDate DateTime?

@@ -288,6 +288,8 @@ export class AutomationEngine {
    * When a payment is marked as PAID or CANCELLED:
    * - Automatically completes linked reminder tasks.
    * - Spawns the next recurring cycle payment if recurrence is enabled.
+   * If marked back to UPCOMING / DUE / OVERDUE:
+   * - Reopens linked reminder tasks.
    */
   static async handlePaymentStatusChange(paymentId: string, newStatus: string) {
     if (newStatus === 'PAID' || newStatus === 'CANCELLED') {
@@ -307,6 +309,26 @@ export class AutomationEngine {
             updatedAt: new Date()
           }
         });
+      }
+    } else if (newStatus === 'UPCOMING' || newStatus === 'DUE' || newStatus === 'OVERDUE' || newStatus === 'PARTIALLY_PAID') {
+      // Payment unmarked or reset to pending: reopen linked tasks
+      const linkedTasks = await prisma.task.findMany({
+        where: {
+          automatedType: 'PAYMENT_REMINDER',
+          description: { contains: paymentId },
+        }
+      });
+
+      for (const task of linkedTasks) {
+        if (task.status === 'COMPLETED' || task.status === 'CANCELLED') {
+          await prisma.task.update({
+            where: { id: task.id },
+            data: {
+              status: 'TODO',
+              updatedAt: new Date()
+            }
+          });
+        }
       }
     }
 
@@ -350,6 +372,64 @@ export class AutomationEngine {
           await AutomationEngine.syncPaymentReminders();
         }
       }
+    }
+  }
+
+  /**
+   * Synchronizes linked reminder tasks when payment dates, amount, recurrence, or assignee change.
+   */
+  static async syncPaymentTask(paymentId: string) {
+    try {
+      const payment = await prisma.payment.findUnique({
+        where: { id: paymentId },
+        include: { client: true, responsibleUser: true },
+      });
+      if (!payment) return;
+
+      const now = new Date();
+      const sevenDaysFromNow = new Date();
+      sevenDaysFromNow.setDate(now.getDate() + 7);
+
+      const isOverdue = payment.dueDate < now && payment.status !== 'PAID' && payment.status !== 'CANCELLED';
+      const isDueSoon = payment.dueDate <= sevenDaysFromNow && payment.status !== 'PAID' && payment.status !== 'CANCELLED';
+
+      const recLabel = payment.recurrence && payment.recurrence !== 'NONE' ? ` [${payment.recurrence}]` : '';
+      const taskTitle = isOverdue
+        ? `🔴 Overdue Income Due — ${payment.client.name}${recLabel}`
+        : isDueSoon
+        ? `💰 Collect Payment — ${payment.client.name}${recLabel}`
+        : `📅 Upcoming Payment Due — ${payment.client.name}${recLabel}`;
+
+      const priority = isOverdue ? 'CRITICAL' : isDueSoon ? 'HIGH' : 'MEDIUM';
+      const assigneeId = payment.responsibleUserId || payment.client?.accountManagerId || payment.createdById;
+
+      const linkedTasks = await prisma.task.findMany({
+        where: {
+          automatedType: 'PAYMENT_REMINDER',
+          description: { contains: paymentId },
+        },
+      });
+
+      for (const task of linkedTasks) {
+        await prisma.task.update({
+          where: { id: task.id },
+          data: {
+            title: taskTitle,
+            description: `Payment of ${payment.currency === 'INR' ? '₹' : '$'}${payment.amount.toLocaleString()} scheduled for ${payment.dueDate.toISOString().split('T')[0]}${recLabel}. [Payment ID: ${payment.id}]`,
+            deadline: payment.dueDate,
+            priority,
+            assignedUserId: assigneeId,
+            status: (payment.status === 'PAID' || payment.status === 'CANCELLED') ? 'COMPLETED' : task.status,
+            updatedAt: new Date(),
+          },
+        });
+      }
+
+      if (linkedTasks.length === 0 && payment.status !== 'PAID' && payment.status !== 'CANCELLED') {
+        await AutomationEngine.syncPaymentReminders();
+      }
+    } catch (err) {
+      console.error('Error in syncPaymentTask:', err);
     }
   }
 

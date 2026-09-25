@@ -6,7 +6,8 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "prisma generate && prisma db push && tsc",
+    "prepare:db": "node scripts/prepare-db.js",
+    "build": "node scripts/prepare-db.js && prisma generate && prisma db push --accept-data-loss=false && tsc",
     "start": "node dist/index.js",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",

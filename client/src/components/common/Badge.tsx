@@ -68,17 +68,25 @@ export const PriorityBadge: React.FC<{ priority: string; size?: 'xs' | 'sm' }> =
 
 export const StatusBadge: React.FC<{ status: string; size?: 'xs' | 'sm' }> = ({ status, size = 'xs' }) => {
   const s = status?.toUpperCase() || '';
-  if (['COMPLETED', 'PAID', 'RESOLVED', 'WON', 'ACTIVE'].includes(s)) {
-    return <Badge variant="emerald" size={size} dot>{status.replace('_', ' ')}</Badge>;
+  if (s === 'WON' || ['COMPLETED', 'PAID', 'RESOLVED', 'ACTIVE'].includes(s)) {
+    const label = s === 'WON' ? 'Deal Won' : status.replace(/_/g, ' ');
+    return <Badge variant="emerald" size={size} dot>{label}</Badge>;
   }
-  if (['IN_PROGRESS', 'CONTACTED', 'ENGAGED', 'QUALIFIED', 'PROPOSAL', 'NEGOTIATION'].includes(s)) {
-    return <Badge variant="blue" size={size} dot>{status.replace('_', ' ')}</Badge>;
+  if (s === 'LOST' || ['OVERDUE', 'BLOCKED', 'CANCELLED', 'INACTIVE'].includes(s)) {
+    const label = s === 'LOST' ? 'Deal Lost' : status.replace(/_/g, ' ');
+    return <Badge variant="rose" size={size} dot>{label}</Badge>;
+  }
+  if (s === 'DEMO_DISCOVERY') {
+    return <Badge variant="purple" size={size} dot>Demo / Discovery</Badge>;
+  }
+  if (s === 'NEGOTIATION') {
+    return <Badge variant="blue" size={size} dot>Service Delivery & Negotiation</Badge>;
+  }
+  if (['IN_PROGRESS', 'CONTACTED', 'ENGAGED', 'QUALIFIED', 'PROPOSAL'].includes(s)) {
+    return <Badge variant="blue" size={size} dot>{status.replace(/_/g, ' ')}</Badge>;
   }
   if (['UPCOMING', 'DUE', 'WAITING', 'PENDING'].includes(s)) {
-    return <Badge variant="amber" size={size} dot>{status.replace('_', ' ')}</Badge>;
+    return <Badge variant="amber" size={size} dot>{status.replace(/_/g, ' ')}</Badge>;
   }
-  if (['OVERDUE', 'BLOCKED', 'CANCELLED', 'LOST', 'INACTIVE'].includes(s)) {
-    return <Badge variant="rose" size={size} dot>{status.replace('_', ' ')}</Badge>;
-  }
-  return <Badge variant="neutral" size={size}>{status?.replace('_', ' ') || 'New'}</Badge>;
+  return <Badge variant="neutral" size={size}>{status?.replace(/_/g, ' ') || 'New'}</Badge>;
 };

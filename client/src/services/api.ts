@@ -166,6 +166,16 @@ export const api = {
       apiFetch('/leads/import/preview', { method: 'POST', body: formData }),
     confirmImport: (payload: { uniqueLeads: any[]; resolvedDuplicates: any[]; assignedUserId?: string }) =>
       apiFetch('/leads/import/confirm', { method: 'POST', body: JSON.stringify(payload) }),
+    bulkReassign: (payload: {
+      leadIds?: string[];
+      fromUserId?: string | null;
+      targetUserId: string | null;
+      crmStatus?: string;
+    }) =>
+      apiFetch<{ success: boolean; count: number; message: string }>('/leads/bulk-reassign', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
   },
 
   // Accounts & Finance

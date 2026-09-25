@@ -11,6 +11,7 @@ import { Modal } from '../../components/common/Modal.js';
 import { EmptyState } from '../../components/common/EmptyState.js';
 import { TableSkeleton } from '../../components/common/Skeleton.js';
 import { ExcelImportModal } from './ExcelImportModal.js';
+import { BulkReassignModal } from './BulkReassignModal.js';
 import {
   Target,
   Kanban,
@@ -18,6 +19,7 @@ import {
   Plus,
   Search,
   UploadCloud,
+  Users,
   Phone,
   Mail,
   MapPin,
@@ -48,6 +50,20 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 
+export const STAGE_LABELS: Record<string, string> = {
+  NEW: 'New Lead',
+  CONTACTED: 'Contacted',
+  DEMO_DISCOVERY: 'Demo / Discovery Call',
+  ENGAGED: 'Engaged',
+  NEGOTIATION: 'Service Delivery & Negotiation',
+  WON: 'Deal Won',
+  LOST: 'Deal Lost',
+};
+
+export const getStageLabel = (stage: string): string => {
+  return STAGE_LABELS[stage] || stage.replace(/_/g, ' ');
+};
+
 interface CRMPageProps {
   initialView?: 'leads' | 'pipeline';
   initialLeadId?: string;
@@ -73,9 +89,8 @@ export const CRMPage: React.FC<CRMPageProps> = ({
   const [stages, setStages] = useState<string[]>([
     'NEW',
     'CONTACTED',
+    'DEMO_DISCOVERY',
     'ENGAGED',
-    'QUALIFIED',
-    'PROPOSAL',
     'NEGOTIATION',
     'WON',
     'LOST',
@@ -122,6 +137,8 @@ export const CRMPage: React.FC<CRMPageProps> = ({
 
   // Modals & Drawers
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isBulkReassignOpen, setIsBulkReassignOpen] = useState(false);
+  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
   // Communication & Follow-up in Lead Drawer
@@ -340,7 +357,7 @@ export const CRMPage: React.FC<CRMPageProps> = ({
   const handleUpdateStage = async (leadId: string, newStage: string) => {
     try {
       await api.leads.update(leadId, { crmStatus: newStage });
-      showToast(`Lead moved to ${newStage.replace('_', ' ')}`, 'success');
+      showToast(`Lead moved to ${getStageLabel(newStage)}`, 'success');
       fetchCRMData();
       fetchFacets();
       if (selectedLead?.id === leadId) {
@@ -484,6 +501,17 @@ export const CRMPage: React.FC<CRMPageProps> = ({
           <Button
             variant="secondary"
             size="sm"
+            onClick={() => setIsBulkReassignOpen(true)}
+            icon={<Users className="w-3.5 h-3.5 text-sky-400" />}
+            className="flex-1 sm:flex-initial justify-center"
+          >
+            <span className="hidden sm:inline">Reassign Reps</span>
+            <span className="sm:hidden">Reassign</span>
+          </Button>
+
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => setIsImportModalOpen(true)}
             icon={<UploadCloud className="w-3.5 h-3.5 text-emerald-400" />}
             className="flex-1 sm:flex-initial justify-center"
@@ -559,7 +587,7 @@ export const CRMPage: React.FC<CRMPageProps> = ({
               <option value="ALL">📊 All Stages</option>
               {stages.map((st) => (
                 <option key={st} value={st}>
-                  {st}
+                  {getStageLabel(st)}
                 </option>
               ))}
             </select>
@@ -999,7 +1027,7 @@ export const CRMPage: React.FC<CRMPageProps> = ({
                 {/* Stage Header */}
                 <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-zinc-200">{stage}</span>
+                    <span className="text-xs font-semibold text-zinc-200">{getStageLabel(stage)}</span>
                     <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-zinc-800 text-zinc-400 font-mono">
                       {stageLeads.length}
                     </span>
@@ -1065,41 +1093,116 @@ export const CRMPage: React.FC<CRMPageProps> = ({
         </div>
       ) : (
         /* TABLE LIST VIEW */
-        <div className="bg-zinc-900/30 border border-zinc-850 rounded-xl overflow-hidden shadow-xs">
-          {leads.length === 0 ? (
-            <EmptyState
-              icon={<Target className="w-5 h-5" />}
-              title="No CRM leads found matching filters"
-              description="Try adjusting your filters or upload new Excel lead spreadsheets."
-              actionLabel="Reset Filters"
-              onAction={handleResetFilters}
-            />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-zinc-900/80 border-b border-zinc-800 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
-                  <tr>
-                    {renderSortableHeader('Business & Industry', 'businessName')}
-                    <th className="px-4 py-3">Phone Number</th>
-                    <th className="px-4 py-3">Email Address</th>
-                    <th className="px-4 py-3">Website Status</th>
-                    {renderSortableHeader('Rating & Reviews', 'rating')}
-                    <th className="px-4 py-3">Web & Maps</th>
-                    {renderSortableHeader('Lead Score', 'leadScore')}
-                    {renderSortableHeader('CRM Stage', 'crmStatus')}
-                    {renderSortableHeader('Date Added', 'createdAt')}
-                    <th className="px-4 py-3">Assigned Rep</th>
-                    <th className="px-4 py-3">Next Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-850">
-                  {leads.map((lead) => (
-                    <tr
-                      key={lead.id}
-                      onClick={() => handleOpenLead(lead)}
-                      className="hover:bg-zinc-850/40 transition-colors cursor-pointer group"
-                    >
-                      {/* Business & Industry */}
+        <div className="space-y-3">
+          {/* Floating / Sticky Bulk Selection Bar */}
+          {selectedLeadIds.size > 0 && (
+            <div className="sticky top-2 z-20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 px-4 bg-sky-950/95 border border-sky-800/80 rounded-xl shadow-lg backdrop-blur-md text-xs animate-in fade-in duration-200">
+              <div className="flex items-center gap-3">
+                <span className="font-semibold text-sky-200 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-sky-400 shrink-0" />
+                  <span>
+                    {selectedLeadIds.size} {selectedLeadIds.size === 1 ? 'lead' : 'leads'} selected
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedLeadIds(new Set(leads.map((l) => l.id)))}
+                  className="text-[11px] text-sky-300 hover:text-white underline cursor-pointer"
+                >
+                  Select all visible ({leads.length})
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setIsBulkReassignOpen(true)}
+                  icon={<UserCheck className="w-3.5 h-3.5" />}
+                >
+                  Reassign Sales Rep
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedLeadIds(new Set())}
+                  className="text-zinc-300 hover:text-white"
+                >
+                  Clear Selection
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <div className="bg-zinc-900/30 border border-zinc-855 rounded-xl overflow-hidden shadow-xs">
+            {leads.length === 0 ? (
+              <EmptyState
+                icon={<Target className="w-5 h-5" />}
+                title="No CRM leads found matching filters"
+                description="Try adjusting your filters or upload new Excel lead spreadsheets."
+                actionLabel="Reset Filters"
+                onAction={handleResetFilters}
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-zinc-900/80 border-b border-zinc-800 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+                    <tr>
+                      <th className="px-3 py-3 w-10 text-center">
+                        <input
+                          type="checkbox"
+                          checked={leads.length > 0 && leads.every((l) => selectedLeadIds.has(l.id))}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedLeadIds(new Set(leads.map((l) => l.id)));
+                            } else {
+                              setSelectedLeadIds(new Set());
+                            }
+                          }}
+                          className="w-4 h-4 rounded border-zinc-700 bg-zinc-800 text-sky-500 focus:ring-sky-500 cursor-pointer"
+                          title="Select / deselect all visible leads"
+                        />
+                      </th>
+                      {renderSortableHeader('Business & Industry', 'businessName')}
+                      <th className="px-4 py-3">Phone Number</th>
+                      <th className="px-4 py-3">Email Address</th>
+                      <th className="px-4 py-3">Website Status</th>
+                      {renderSortableHeader('Rating & Reviews', 'rating')}
+                      <th className="px-4 py-3">Web & Maps</th>
+                      {renderSortableHeader('Lead Score', 'leadScore')}
+                      {renderSortableHeader('CRM Stage', 'crmStatus')}
+                      {renderSortableHeader('Date Added', 'createdAt')}
+                      <th className="px-4 py-3">Assigned Rep</th>
+                      <th className="px-4 py-3">Next Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-850">
+                    {leads.map((lead) => (
+                      <tr
+                        key={lead.id}
+                        onClick={() => handleOpenLead(lead)}
+                        className={`hover:bg-zinc-850/40 transition-colors cursor-pointer group ${
+                          selectedLeadIds.has(lead.id) ? 'bg-sky-950/20' : ''
+                        }`}
+                      >
+                        {/* Checkbox */}
+                        <td className="px-3 py-3 w-10 text-center" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={selectedLeadIds.has(lead.id)}
+                            onChange={(e) => {
+                              const next = new Set(selectedLeadIds);
+                              if (e.target.checked) {
+                                next.add(lead.id);
+                              } else {
+                                next.delete(lead.id);
+                              }
+                              setSelectedLeadIds(next);
+                            }}
+                            className="w-4 h-4 rounded border-zinc-700 bg-zinc-800 text-sky-500 focus:ring-sky-500 cursor-pointer"
+                          />
+                        </td>
+
+                        {/* Business & Industry */}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-zinc-100 group-hover:text-sky-400 transition-colors">
@@ -1287,14 +1390,15 @@ export const CRMPage: React.FC<CRMPageProps> = ({
             </div>
           )}
         </div>
-      )}
+      </div>
+    )}
 
       {/* LEAD DETAIL SLIDE-OVER DRAWER */}
       <Drawer
         isOpen={!!selectedLead}
         onClose={() => setSelectedLead(null)}
         title={selectedLead?.businessName || 'Lead Profile'}
-        subtitle={`CRM Stage: ${selectedLead?.crmStatus} • Score: ${selectedLead?.leadScore || 50}`}
+        subtitle={`CRM Stage: ${getStageLabel(selectedLead?.crmStatus || '')} • Score: ${selectedLead?.leadScore || 50}`}
         width="xl"
       >
         {selectedLead && (
@@ -1307,11 +1411,11 @@ export const CRMPage: React.FC<CRMPageProps> = ({
                   <select
                     value={selectedLead.crmStatus}
                     onChange={(e) => handleUpdateStage(selectedLead.id, e.target.value)}
-                    className="px-2.5 py-1 bg-zinc-800 border border-zinc-700 rounded text-xs text-zinc-100 font-medium cursor-pointer"
+                    className="px-2.5 py-1 bg-zinc-850 border border-zinc-700 rounded text-xs text-zinc-100 font-medium cursor-pointer"
                   >
                     {stages.map((st) => (
                       <option key={st} value={st}>
-                        {st}
+                        {getStageLabel(st)}
                       </option>
                     ))}
                   </select>
@@ -1590,6 +1694,21 @@ export const CRMPage: React.FC<CRMPageProps> = ({
           </form>
         </Modal>
       )}
+
+      {/* BULK REASSIGN SALES REP MODAL */}
+      <BulkReassignModal
+        isOpen={isBulkReassignOpen}
+        onClose={() => setIsBulkReassignOpen(false)}
+        onSuccess={() => {
+          setSelectedLeadIds(new Set());
+          fetchCRMData();
+          fetchFacets();
+        }}
+        usersList={usersList}
+        stages={stages}
+        selectedLeadIds={Array.from(selectedLeadIds)}
+        initialSourceRepId={assignedFilter !== 'ALL' ? assignedFilter : undefined}
+      />
     </div>
   );
 };
